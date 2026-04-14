@@ -22,6 +22,28 @@
     margin: 0;
   }
 
+  /* highlight.js — Clave 다크 테마 최소 토큰 */
+  .hljs { color: var(--color-on-surface); }
+  .hljs-keyword,
+  .hljs-selector-tag,
+  .hljs-built_in { color: #c792ea; }
+  .hljs-string,
+  .hljs-attr { color: #c3e88d; }
+  .hljs-number,
+  .hljs-literal { color: #f78c6c; }
+  .hljs-comment,
+  .hljs-quote { color: #546e7a; font-style: italic; }
+  .hljs-function .hljs-title,
+  .hljs-title.function_ { color: #82aaff; }
+  .hljs-type,
+  .hljs-class .hljs-title { color: #ffcb6b; }
+  .hljs-variable,
+  .hljs-template-variable { color: #f07178; }
+  .hljs-meta { color: #89ddff; }
+  .hljs-punctuation { color: #89ddff; }
+  .hljs-addition { color: #c3e88d; }
+  .hljs-deletion { color: #f07178; }
+
   /* 포커스 링 — Ghost Border 룰 (outline_variant 의 그 톤) */
   :focus-visible {
     outline: 2px solid var(--color-primary-dim);

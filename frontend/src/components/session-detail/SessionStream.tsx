@@ -1,10 +1,55 @@
-import { User, Bot, ChevronRight } from "lucide-react";
+import { useState } from "react";
+import { User, Bot, ChevronRight, ChevronDown } from "lucide-react";
 import type { MessageItem } from "~/api/queries";
+import { MarkdownContent } from "./MarkdownContent";
 
 interface Props {
   messages: MessageItem[];
   hasMore: boolean;
   onLoadMore: () => void;
+}
+
+interface ToolUseEntry {
+  id?: string;
+  name?: string;
+  input?: Record<string, unknown>;
+}
+
+function ToolUseCard({ tool }: { tool: ToolUseEntry }) {
+  const [open, setOpen] = useState(false);
+  const name = tool.name ?? "unknown";
+  const input = tool.input;
+  const hasInput = input && Object.keys(input).length > 0;
+
+  return (
+    <div className="rounded border border-outline-variant/20 bg-surface-container-lowest transition-colors hover:border-outline-variant/40">
+      <button
+        onClick={() => setOpen(!open)}
+        className="flex w-full items-center justify-between p-2"
+      >
+        <div className="flex items-center gap-2">
+          {open ? (
+            <ChevronDown size={14} className="text-primary" />
+          ) : (
+            <ChevronRight size={14} className="text-primary" />
+          )}
+          <code className="font-mono text-sm text-primary-dim">{name}</code>
+        </div>
+        {!open && (
+          <span className="px-2 font-mono text-xs text-outline/40">
+            {hasInput ? "클릭하여 확장" : "입력 없음"}
+          </span>
+        )}
+      </button>
+      {open && hasInput && (
+        <div className="border-t border-outline-variant/15 p-3">
+          <pre className="overflow-x-auto font-mono text-xs leading-relaxed text-on-surface-variant">
+            {JSON.stringify(input, null, 2)}
+          </pre>
+        </div>
+      )}
+    </div>
+  );
 }
 
 function MessageBlock({ msg }: { msg: MessageItem }) {
@@ -14,7 +59,7 @@ function MessageBlock({ msg }: { msg: MessageItem }) {
         <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded border border-outline-variant/30 bg-surface-container-highest">
           <User size={18} className="text-outline" />
         </div>
-        <div className="max-w-2xl space-y-2">
+        <div className="min-w-0 max-w-2xl space-y-2">
           <span className="font-mono text-xs uppercase tracking-widest text-outline">
             사용자
           </span>
@@ -27,41 +72,23 @@ function MessageBlock({ msg }: { msg: MessageItem }) {
   }
 
   if (msg.type === "assistant") {
+    const tools = (msg.tool_use ?? []) as ToolUseEntry[];
+
     return (
       <article className="flex gap-4">
         <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded border border-primary/30 bg-primary-container/20">
           <Bot size={18} className="text-primary" />
         </div>
-        <div className="max-w-2xl space-y-2">
+        <div className="min-w-0 max-w-2xl space-y-2">
           <span className="font-mono text-xs uppercase tracking-widest text-primary">
             어시스턴트
           </span>
           <div className="space-y-3">
-            {msg.text && (
-              <p className="whitespace-pre-wrap text-md leading-relaxed text-on-surface">
-                {msg.text}
-              </p>
-            )}
-            {msg.tool_use && msg.tool_use.length > 0 && (
-              <div className="space-y-1">
-                {msg.tool_use.map((t, i) => (
-                  <div
-                    key={i}
-                    className="group flex cursor-pointer items-center justify-between rounded border border-outline-variant/20 bg-surface-container-lowest p-2 transition-colors hover:border-outline-variant/50"
-                  >
-                    <div className="flex items-center gap-3">
-                      <ChevronRight
-                        size={16}
-                        className="text-primary"
-                      />
-                      <code className="font-mono text-sm text-primary-dim">
-                        tool: {(t as Record<string, unknown>).name as string ?? "unknown"} 실행됨
-                      </code>
-                    </div>
-                    <span className="px-2 font-mono text-xs text-outline/30 transition-colors group-hover:text-outline">
-                      클릭하여 확장
-                    </span>
-                  </div>
+            {msg.text && <MarkdownContent content={msg.text} />}
+            {tools.length > 0 && (
+              <div className="space-y-1.5">
+                {tools.map((t, i) => (
+                  <ToolUseCard key={t.id ?? i} tool={t} />
                 ))}
               </div>
             )}
@@ -71,13 +98,13 @@ function MessageBlock({ msg }: { msg: MessageItem }) {
     );
   }
 
-  // other types (attachment, queue-operation, unknown) — 간단히 표시
+  // other types
   return (
     <article className="flex gap-4 opacity-50">
       <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded border border-outline-variant/30 bg-surface-container-highest">
         <span className="font-mono text-xs text-outline">?</span>
       </div>
-      <div className="max-w-2xl">
+      <div className="min-w-0 max-w-2xl">
         <span className="font-mono text-xs uppercase tracking-widest text-outline">
           {msg.type}
         </span>
