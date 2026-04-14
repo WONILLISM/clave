@@ -1,6 +1,16 @@
 #!/usr/bin/env bash
-# Git pre-commit hook — scripts/check.sh 실행.
-# 검증 실패 시 커밋 차단.
+# Git pre-commit hook — 코드 변경이 있을 때만 scripts/check.sh 실행.
+# 문서/설정만 변경한 커밋은 스킵.
 
 REPO_ROOT="$(cd "$(dirname "$0")/.." && pwd)"
+
+# staged 파일 중 코드 파일이 있는지 확인
+CODE_FILES="$(git diff --cached --name-only --diff-filter=ACMR \
+  | grep -E '\.(py|ts|tsx|js|jsx|css|sql|sh)$' || true)"
+
+if [[ -z "$CODE_FILES" ]]; then
+  # 문서/설정만 변경 — check.sh 스킵
+  exit 0
+fi
+
 exec "$REPO_ROOT/scripts/check.sh"
