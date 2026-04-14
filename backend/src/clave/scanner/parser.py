@@ -61,6 +61,26 @@ def _extract_tool_use(content: object) -> list[dict]:
     return out
 
 
+def extract_file_paths(tool_use_blocks: list[dict]) -> set[str]:
+    """Extract file paths from tool_use input fields.
+
+    Covers Read/Edit/Write (file_path) and Glob (path).
+    Bash commands are skipped — too fuzzy to parse reliably.
+    """
+    paths: set[str] = set()
+    for block in tool_use_blocks:
+        inp = block.get("input")
+        if not isinstance(inp, dict):
+            continue
+        if fp := inp.get("file_path"):
+            if isinstance(fp, str):
+                paths.add(fp)
+        if p := inp.get("path"):
+            if isinstance(p, str):
+                paths.add(p)
+    return paths
+
+
 def normalise(line_obj: dict) -> MessageItem | None:
     """Convert a raw jsonl object into a MessageItem. Returns None if utterly unrecognisable."""
     rec_type = line_obj.get("type")

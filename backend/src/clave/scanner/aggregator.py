@@ -5,7 +5,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from pathlib import Path
 
-from clave.scanner.parser import ParseStats, iter_jsonl
+from clave.scanner.parser import ParseStats, extract_file_paths, iter_jsonl
 
 
 @dataclass(slots=True)
@@ -21,6 +21,7 @@ class SessionSummary:
     git_branch: str | None = None
     cc_version: str | None = None
     cwd_from_user_msg: str | None = None
+    file_paths: set[str] = field(default_factory=set)
     parse_stats: ParseStats = field(default_factory=ParseStats)
 
 
@@ -46,6 +47,7 @@ def aggregate_jsonl(path: Path, session_id: str) -> SessionSummary:
             s.assistant_message_count += 1
             if item.tool_use:
                 s.tool_use_count += len(item.tool_use)
+                s.file_paths.update(extract_file_paths(item.tool_use))
 
         if item.git_branch:
             s.git_branch = item.git_branch

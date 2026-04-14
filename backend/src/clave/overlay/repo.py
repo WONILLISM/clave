@@ -11,6 +11,7 @@ from clave.models import (
     NoteRow,
     ProjectListItem,
     ProjectRow,
+    SearchResponse,
     SessionListItem,
     SessionRow,
     TagListItem,
@@ -72,15 +73,30 @@ async def list_projects(conn: aiosqlite.Connection) -> list[ProjectListItem]:
 # ---------- Sessions ----------
 
 
-async def upsert_session(conn: aiosqlite.Connection, row: SessionRow) -> None:
+async def upsert_session(
+    conn: aiosqlite.Connection, row: SessionRow, decoded_cwd: str = ""
+) -> None:
+    # Capture old FTS values BEFORE upsert (for contentless FTS5 delete).
+    cur = await conn.execute(
+        """
+        SELECT s.rowid, COALESCE(s.summary, ''), COALESCE(s.file_paths, ''),
+               COALESCE(pr.decoded_cwd, '')
+        FROM sessions s
+        JOIN projects pr ON pr.project_id = s.project_id
+        WHERE s.session_id = ?
+        """,
+        (row.session_id,),
+    )
+    old_fts = await cur.fetchone()
+
     await conn.execute(
         """
         INSERT INTO sessions (
             session_id, project_id, jsonl_path, started_at, last_message_at,
             message_count, user_message_count, assistant_message_count,
             tool_use_count, subagent_count, summary, git_branch, cc_version,
-            file_size, file_mtime, indexed_at
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            file_paths, file_size, file_mtime, indexed_at
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         ON CONFLICT(session_id) DO UPDATE SET
             jsonl_path              = excluded.jsonl_path,
             started_at              = excluded.started_at,
@@ -93,6 +109,7 @@ async def upsert_session(conn: aiosqlite.Connection, row: SessionRow) -> None:
             summary                 = excluded.summary,
             git_branch              = excluded.git_branch,
             cc_version              = excluded.cc_version,
+            file_paths              = excluded.file_paths,
             file_size               = excluded.file_size,
             file_mtime              = excluded.file_mtime,
             indexed_at              = excluded.indexed_at
@@ -111,11 +128,28 @@ async def upsert_session(conn: aiosqlite.Connection, row: SessionRow) -> None:
             row.summary,
             row.git_branch,
             row.cc_version,
+            row.file_paths,
             row.file_size,
             row.file_mtime,
             row.indexed_at,
         ),
     )
+    # Sync FTS5 contentless index.
+    cur = await conn.execute("SELECT rowid FROM sessions WHERE session_id = ?", (row.session_id,))
+    rowid_row = await cur.fetchone()
+    if rowid_row:
+        rowid = rowid_row[0]
+        if old_fts:
+            # Delete old entry (contentless FTS5 requires original values).
+            await conn.execute(
+                "INSERT INTO sessions_fts(sessions_fts, rowid, summary, file_paths, decoded_cwd) "
+                "VALUES('delete', ?, ?, ?, ?)",
+                (old_fts[0], old_fts[1], old_fts[2], old_fts[3]),
+            )
+        await conn.execute(
+            "INSERT INTO sessions_fts(rowid, summary, file_paths, decoded_cwd) VALUES (?, ?, ?, ?)",
+            (rowid, row.summary or "", row.file_paths, decoded_cwd),
+        )
 
 
 async def get_session_signature(
@@ -407,3 +441,73 @@ async def update_note(conn: aiosqlite.Connection, note_id: int, body: str) -> No
 async def delete_note(conn: aiosqlite.Connection, note_id: int) -> bool:
     cur = await conn.execute("DELETE FROM notes WHERE note_id = ?", (note_id,))
     return cur.rowcount > 0
+
+
+# ---------- Search (FTS5) ----------
+
+
+async def search_sessions(
+    conn: aiosqlite.Connection,
+    query: str,
+    *,
+    limit: int = 20,
+) -> SearchResponse:
+    """FTS5 MATCH on sessions_fts, returns matching sessions."""
+    # FTS5 expects double-quotes around terms with special chars; wrap each token.
+    tokens = query.strip().split()
+    if not tokens:
+        return SearchResponse(items=[], query=query)
+    fts_query = " OR ".join(f'"{t}"' for t in tokens)
+
+    cur = await conn.execute(
+        """
+        SELECT s.*, pr.decoded_cwd, (p.session_id IS NOT NULL) AS is_pinned
+        FROM sessions_fts fts
+        JOIN sessions s ON s.rowid = fts.rowid
+        JOIN projects pr ON pr.project_id = s.project_id
+        LEFT JOIN pins p ON p.session_id = s.session_id
+        WHERE sessions_fts MATCH ?
+        ORDER BY rank
+        LIMIT ?
+        """,
+        (fts_query, limit),
+    )
+    rows = await cur.fetchall()
+
+    sids = [r["session_id"] for r in rows]
+    tags_map: dict[str, list[str]] = {sid: [] for sid in sids}
+    if sids:
+        placeholders = ",".join("?" * len(sids))
+        cur = await conn.execute(
+            f"""
+            SELECT st.session_id, t.name
+            FROM session_tags st JOIN tags t ON t.tag_id = st.tag_id
+            WHERE st.session_id IN ({placeholders})
+            ORDER BY t.name
+            """,
+            sids,
+        )
+        for tr in await cur.fetchall():
+            tags_map[tr["session_id"]].append(tr["name"])
+
+    items = [
+        SessionListItem(
+            session_id=r["session_id"],
+            project_id=r["project_id"],
+            decoded_cwd=r["decoded_cwd"],
+            started_at=r["started_at"],
+            last_message_at=r["last_message_at"],
+            message_count=r["message_count"],
+            user_message_count=r["user_message_count"],
+            assistant_message_count=r["assistant_message_count"],
+            tool_use_count=r["tool_use_count"],
+            subagent_count=r["subagent_count"],
+            summary=r["summary"],
+            git_branch=r["git_branch"],
+            cc_version=r["cc_version"],
+            pinned=bool(r["is_pinned"]),
+            tags=tags_map.get(r["session_id"], []),
+        )
+        for r in rows
+    ]
+    return SearchResponse(items=items, query=query)

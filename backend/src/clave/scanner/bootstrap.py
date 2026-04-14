@@ -102,6 +102,7 @@ async def scan_project(
                 summary=summary.summary,
                 git_branch=summary.git_branch,
                 cc_version=summary.cc_version,
+                file_paths="\n".join(sorted(summary.file_paths)),
                 file_size=size,
                 file_mtime=mtime,
                 indexed_at=_now_iso(),
@@ -131,7 +132,7 @@ async def scan_project(
     async with transaction(conn):
         await repo.upsert_project(conn, proj)
         for row in new_rows:
-            await repo.upsert_session(conn, row)
+            await repo.upsert_session(conn, row, decoded_cwd=decoded)
 
     return len(new_rows), skipped
 

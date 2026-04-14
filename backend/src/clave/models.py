@@ -31,6 +31,7 @@ class SessionRow(BaseModel):
     summary: str | None = None
     git_branch: str | None = None
     cc_version: str | None = None
+    file_paths: str = ""
     file_size: int
     file_mtime: str
     indexed_at: str
@@ -114,6 +115,11 @@ class CreateNoteRequest(BaseModel):
 
 class UpdateNoteRequest(BaseModel):
     body: str
+
+
+class SearchResponse(BaseModel):
+    items: list[SessionListItem]
+    query: str
 
 
 class RescanRequest(BaseModel):

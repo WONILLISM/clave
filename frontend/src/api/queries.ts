@@ -21,6 +21,12 @@ export type SessionsQuery =
 
 export type TagListItem = components["schemas"]["TagListItem"];
 
+// 검색 응답 (schema.ts 재생성 전이므로 인라인 정의)
+export interface SearchResponse {
+  items: SessionListItem[];
+  query: string;
+}
+
 // ── Tags ────────────────────────────────────────────────────
 export function useTags() {
   return useQuery({
@@ -71,5 +77,16 @@ export function useSession(id: string, offset = 0, limit = 200) {
         `/api/sessions/${id}?offset=${offset}&limit=${limit}`,
       ),
     enabled: !!id,
+  });
+}
+
+// ── Search ──────────────────────────────────────────────────
+export function useSearch(q: string) {
+  return useQuery({
+    queryKey: ["search", q],
+    queryFn: () =>
+      api<SearchResponse>(`/api/search?q=${encodeURIComponent(q)}`),
+    enabled: q.length >= 2,
+    placeholderData: (prev) => prev,
   });
 }
