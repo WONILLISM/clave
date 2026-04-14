@@ -1,0 +1,31 @@
+/*
+ * 전역 리셋 보강.
+ * 토큰·테마는 tokens.css 에서 정의. 여기는 *최소한의* 기본값만.
+ */
+
+@import "./tokens.css";
+
+@layer base {
+  *,
+  *::before,
+  *::after {
+    box-sizing: border-box;
+  }
+
+  html,
+  body,
+  #root {
+    height: 100%;
+  }
+
+  body {
+    margin: 0;
+  }
+
+  /* 포커스 링 — Ghost Border 룰 (outline_variant 의 그 톤) */
+  :focus-visible {
+    outline: 2px solid var(--color-primary-dim);
+    outline-offset: 2px;
+    border-radius: var(--radius-xs);
+  }
+}

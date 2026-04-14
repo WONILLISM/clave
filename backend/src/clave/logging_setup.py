@@ -1,0 +1,17 @@
+"""Structured-ish logging using rich for nice console output."""
+
+from __future__ import annotations
+
+import logging
+
+from rich.logging import RichHandler
+
+
+def setup_logging(level: str = "INFO") -> None:
+    logging.basicConfig(
+        level=level,
+        format="%(message)s",
+        datefmt="%H:%M:%S",
+        handlers=[RichHandler(rich_tracebacks=True, show_path=False)],
+        force=True,
+    )

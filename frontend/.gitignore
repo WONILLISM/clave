@@ -1,0 +1,10 @@
+node_modules/
+dist/
+.vite/
+*.log
+.env
+.env.*
+!.env.example
+
+# TanStack Router 자동 생성 (커밋 안 함, dev 시 생성)
+src/routeTree.gen.ts
