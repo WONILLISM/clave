@@ -84,15 +84,16 @@ Workspace
 
 ### P0 — Week 1~2 (개인 사용 즉시 가치)
 
-- **Unified Timeline** — Cowork+Code 세션을 한 줄로. 날짜·프로젝트·태그·디바이스 필터.
-- **Session Viewer** — 세션 선택하면 메시지·tool_use·산출물 파일 링크를 한 화면.
-- **Pin / Tag / Note** — 세션에 태그·핀·메모 부여. 저장소: `~/.claude-workspace/overlay.sqlite`.
+- ✅ **Unified Timeline** — Cowork+Code 세션을 한 줄로. 날짜·프로젝트·태그·디바이스 필터.
+- ✅ **Session Viewer** — 세션 선택하면 메시지·tool_use·산출물 파일 링크를 한 화면.
+- ✅ **Pin / Tag** — 세션에 태그·핀 부여. 저장소: `~/.clave/overlay.sqlite`.
+- **Note** — 세션에 메모 부여. (미구현)
 - **Artifact Tracker** — 정해진 경로들을 주기 스캔하여 산출물 카드화 + 출처 세션 역참조.
 
 ### P1 — Week 3 (지식화)
 
 - **Highlight → Knowledge** — 세션 특정 블록 드래그해서 "프롬프트/레시피/스니펫"으로 승격.
-- **Search** — Overlay + Knowledge 전역 검색 (SQLite FTS5).
+- ✅ **Search** — Overlay + Knowledge 전역 검색 (SQLite FTS5).
 - **Recipe Suggester** — 현재 세션 cwd·파일 타입 보고 "이 작업엔 이 스킬 조합" 힌트.
 
 ### P2 — Week 4+ (운영 통제 + 정돈 + 나중 확장)
@@ -168,9 +169,10 @@ Workspace
 
 ## 7. 정보 구조 (IA)
 
-- **Today** (홈) — 오늘 세션 타임라인, 진행 중 태스크, 핀 바로가기
-- **Timeline** — 모든 세션, 필터·검색
-- **Projects** — 프로젝트별 뷰 (KP Online, 메디컬, 자동화, 개인 실험)
+- ✅ **Dashboard** (홈) — 통계 카드 + 최근 세션 + 활성 프로젝트 + 태그 분포
+- ✅ **Sessions** (Timeline) — 모든 세션, 필터·검색·핀·태그
+- ✅ **Projects** — 프로젝트별 뷰
+- ✅ **Session Detail** — 메시지·tool_use 마크다운 렌더링
 - **Knowledge** — Prompts / Recipes / Snippets
 - **Artifacts** — 산출물 카탈로그
 - **Tasks** — 예약·진행 작업 통제
@@ -349,14 +351,16 @@ Scanner (watchdog)
 
 ## 11. 로드맵
 
-| 주차 | 목표 | 산출물 |
-|---|---|---|
-| W1 | Scanner + Overlay DB + **Timeline·Viewer 뷰 (P0 첫 착수)** | 세션 타임라인, 핀/태그 동작 |
-| W2 | Artifact 스캐너 + 세션 연결 + Pin/Tag/Note 완성 | 산출물 카드에서 출처 세션 역참조 |
-| W3 | Highlight → Knowledge 승격 + FTS 검색 + Recipe suggester | Knowledge 탭 동작 |
-| W4 | **Housekeeping 탐지 룰 8종 + 격리/복원/유예 + Dry-run UI** | 🧹 탭 개인 사용 가능 |
-| W5 | Scheduled task console + 디바이스 sync 검증 + Env 탭 이식 + Housekeeping 자동화 레벨 L1 | 팀 배포 전 안정화 |
-| W6+ | Team export, 템플릿 관리자, 권한 모델, AELIQ 정리 프리셋 | 팀 배포 베타 |
+| 주차 | 목표 | 산출물 | 상태 |
+|---|---|---|---|
+| W1 | Scanner + Overlay DB + Timeline·Viewer 뷰 | 세션 타임라인, 핀/태그 동작 | ✅ 완료 |
+| W1.5 | 프론트엔드 스캐폴드 + 공통 셸 | Vite+React+TanStack 기반 | ✅ 완료 |
+| W2 | Projects·Sessions·Session Detail 통합 | 세 화면 + 인터랙션 (Pin/Tag/Filter/Rescan) | ✅ 완료 |
+| W3 | 마크다운 렌더링 + Tool use + FTS5 검색 + 대시보드 홈 | 세션 뷰어 완성 + 검색 + 홈 | ✅ 완료 |
+| W4 | Note + Artifact 스캐너 + Highlight → Knowledge | 산출물 카드 + Knowledge 탭 | 🔜 다음 |
+| W5 | **Housekeeping 탐지 룰 + 격리/복원/유예 + Dry-run UI** | 🧹 탭 개인 사용 가능 | |
+| W6 | Scheduled task console + 디바이스 sync + Env 탭 이식 | 팀 배포 전 안정화 | |
+| W7+ | Team export, 템플릿 관리자, 권한 모델, AELIQ 정리 프리셋 | 팀 배포 베타 | |
 
 ## 12. 리스크 & 대응
 
