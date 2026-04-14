@@ -13,9 +13,9 @@ export const Route = createFileRoute("/sessions/")({
   validateSearch: (search: Record<string, unknown>): SessionsSearch => ({
     project_id: (search.project_id as string) || undefined,
     pinned:
-      search.pinned === "true"
+      search.pinned === true || search.pinned === "true"
         ? true
-        : search.pinned === "false"
+        : search.pinned === false || search.pinned === "false"
           ? false
           : undefined,
   }),
