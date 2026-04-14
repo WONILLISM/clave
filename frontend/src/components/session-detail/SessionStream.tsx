@@ -64,8 +64,14 @@ function buildResultMap(messages: MessageItem[]): Map<string, ToolResultEntry> {
   return map;
 }
 
-const MAX_RESULT_LINES = 30;
-const MAX_RESULT_CHARS = 3000;
+const MAX_RESULT_LINES = 50;
+const MAX_RESULT_CHARS = 5000;
+
+/** 결과 텍스트에 마크다운 문법이 포함되어 있는지 간단 휴리스틱 */
+function looksLikeMarkdown(text: string): boolean {
+  // 헤딩, 볼드, 리스트, 코드블록, 링크 등
+  return /^#{1,3}\s/m.test(text) || /\*\*.+\*\*/m.test(text) || /^```/m.test(text) || /^\|.+\|$/m.test(text);
+}
 
 function truncateResult(text: string): { text: string; truncated: boolean } {
   const lines = text.split("\n");
@@ -150,15 +156,21 @@ function ToolUseCard({
               <div className="mb-1 font-mono text-2xs uppercase tracking-wider text-outline/60">
                 결과
               </div>
-              <pre
-                className={`overflow-x-auto font-mono text-xs leading-relaxed ${
-                  result?.is_error
-                    ? "text-error-dim"
-                    : "text-on-surface-variant"
-                }`}
-              >
-                {truncated.text}
-              </pre>
+              {looksLikeMarkdown(truncated.text) ? (
+                <div className="text-sm">
+                  <MarkdownContent content={truncated.text} />
+                </div>
+              ) : (
+                <pre
+                  className={`overflow-x-auto font-mono text-xs leading-relaxed ${
+                    result?.is_error
+                      ? "text-error-dim"
+                      : "text-on-surface-variant"
+                  }`}
+                >
+                  {truncated.text}
+                </pre>
+              )}
               {truncated.truncated && (
                 <span className="mt-1 inline-block font-mono text-2xs text-outline/50">
                   … 결과가 잘렸습니다
