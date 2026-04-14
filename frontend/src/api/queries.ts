@@ -19,6 +19,16 @@ export type MessageItem = components["schemas"]["MessageItem"];
 export type SessionsQuery =
   operations["list_sessions_endpoint_api_sessions_get"]["parameters"]["query"];
 
+export type TagListItem = components["schemas"]["TagListItem"];
+
+// ── Tags ────────────────────────────────────────────────────
+export function useTags() {
+  return useQuery({
+    queryKey: ["tags"],
+    queryFn: () => api<TagListItem[]>("/api/tags"),
+  });
+}
+
 // ── Health ──────────────────────────────────────────────────
 export function useHealth() {
   return useQuery({

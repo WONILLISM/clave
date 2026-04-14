@@ -1,6 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { RefreshCw } from "lucide-react";
 import { useProjects } from "~/api/queries";
+import { useRescan } from "~/api/mutations";
 import { ProjectsTable } from "~/components/projects/ProjectsTable";
 
 export const Route = createFileRoute("/projects")({
@@ -8,7 +9,8 @@ export const Route = createFileRoute("/projects")({
 });
 
 function ProjectsPage() {
-  const { data: projects, isPending, error, refetch } = useProjects();
+  const { data: projects, isPending, error } = useProjects();
+  const rescan = useRescan();
 
   const total = projects?.length ?? 0;
   const active = projects?.filter((p) => p.cwd_exists).length ?? 0;
@@ -27,11 +29,15 @@ function ProjectsPage() {
             </p>
           </div>
           <button
-            onClick={() => refetch()}
-            className="flex items-center gap-2 rounded-xs border border-outline-variant bg-surface-container px-3 py-1.5 font-mono text-sm text-on-surface transition-all hover:bg-surface-container-high"
+            onClick={() => rescan.mutate(undefined)}
+            disabled={rescan.isPending}
+            className="flex items-center gap-2 rounded-xs border border-outline-variant bg-surface-container px-3 py-1.5 font-mono text-sm text-on-surface transition-all hover:bg-surface-container-high disabled:opacity-50"
           >
-            <RefreshCw size={14} />
-            다시 검색
+            <RefreshCw
+              size={14}
+              className={rescan.isPending ? "animate-spin" : ""}
+            />
+            {rescan.isPending ? "검색 중…" : "다시 검색"}
           </button>
         </div>
       </div>
