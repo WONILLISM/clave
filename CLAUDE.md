@@ -276,10 +276,10 @@ plan mode에서 승인된 작업을 실행할 때:
 
 **검증을 통과하지 않으면 커밋하지 않는다.**
 
-### 커밋 → 머지 → 완료 처리
+### 커밋 → 머지
 
-- 커밋 메시지는 Conventional Commits 형식: `feat(scope): 설명`
-- master 머지 후 `bash scripts/complete-task.sh <task-id>` 실행.
+- 커밋 메시지는 Conventional Commits 형식 (§2 커밋 컨벤션 참조)
+- `.githooks/pre-commit`이 `scripts/check.sh`를 자동 실행 — 검증 실패 시 커밋 차단
 
 ### 사용자 승인 필수 사항
 
