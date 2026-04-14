@@ -392,3 +392,17 @@ Scanner (watchdog)
 - overlay·trash 경로 최종 (기본값 그대로 갈지 여부)
 - 라우터 선택 (TanStack Router vs React Router v7) — W1 hello-world 시점에
 - 디바이스 sync 수단 (iCloud Drive vs Syncthing) — W5 검증 후
+
+### 미래 플랜: 팀 하네스 (Cowork + Box Drive)
+
+> (2026-04-14 논의, 추후 별도 라운드로 진행)
+
+**배경**: 개발자는 Claude Code + CLAUDE.md로 하네스를 구축하지만, 비개발 직원(의학라이터, 디자이너, 기획자)은 **Claude Cowork**을 사용한다. 이들에게도 하네스 엔지니어링을 적용하려면 Cowork의 "프로젝트 지식 베이스" 기능을 활용해야 한다.
+
+**구상**:
+- **Box Drive 루트**: 글로벌 `CLAUDE.md` (회사 공통 규칙) + 직군별 템플릿
+- **프로젝트 생성 시**: 글로벌 + 직군별 템플릿을 조합해 프로젝트 전용 `CLAUDE.md` 자동 생성
+- **Cowork 지식 베이스**: 프로젝트 폴더를 지정하면 해당 폴더 내 `CLAUDE.md`가 하네스로 작동
+- **제약**: Cowork은 지식 베이스 폴더 상위를 탐색 불가 → 프로젝트 폴더에 필요한 모든 컨텍스트가 있어야 함
+
+**Clave와의 관계**: Clave는 개인용 범용 도구로 public 유지. 회사 콘텐츠(템플릿, 규칙)는 Box Drive에 격리. Clave에 팀 기능을 넣으려면 GitHub private 전환 필요 → 현 단계에서는 분리 유지.
