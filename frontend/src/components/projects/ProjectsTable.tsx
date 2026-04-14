@@ -1,6 +1,6 @@
 import { Folder } from "lucide-react";
 import type { ProjectListItem } from "~/api/queries";
-import { timeAgo, parentDir } from "~/lib/format";
+import { timeAgo, parentDir, baseName } from "~/lib/format";
 
 interface Props {
   projects: ProjectListItem[];
@@ -60,10 +60,10 @@ export function ProjectsTable({ projects }: Props) {
             >
               <div className="col-span-6 flex flex-col">
                 <span className="font-mono text-base text-on-surface transition-colors group-hover:text-primary">
-                  {p.decoded_cwd}
+                  {baseName(p.decoded_cwd)}
                 </span>
-                <span className="font-mono text-xs text-outline">
-                  {p.project_id.slice(0, 16)}…
+                <span className="font-mono text-xs text-outline" title={p.decoded_cwd}>
+                  {p.decoded_cwd}
                 </span>
               </div>
               <div className="col-span-3 px-4 text-right text-base text-on-surface-variant">

@@ -1,6 +1,7 @@
 import { useNavigate } from "@tanstack/react-router";
+import { Pin } from "lucide-react";
 import type { SessionListItem } from "~/api/queries";
-import { timeAgo } from "~/lib/format";
+import { timeAgo, baseName } from "~/lib/format";
 
 interface Props {
   sessions: SessionListItem[];
@@ -53,15 +54,21 @@ export function SessionsTable({ sessions }: Props) {
             className="group h-7 cursor-pointer transition-colors hover:bg-surface-container-low"
           >
             <td className="pl-4 pr-2">
-              <div
-                className={`h-1.5 w-1.5 rounded-full ${dotClass(s.last_message_at)}`}
-              />
+              <div className="flex items-center gap-1">
+                <div
+                  className={`h-1.5 w-1.5 rounded-full ${dotClass(s.last_message_at)}`}
+                />
+                {s.pinned && <Pin size={10} className="text-primary" />}
+              </div>
             </td>
-            <td className="px-2 font-medium text-on-surface transition-colors group-hover:text-primary">
+            <td className="max-w-xs truncate px-2 font-medium text-on-surface transition-colors group-hover:text-primary">
               {s.summary || s.session_id.slice(0, 16) + "…"}
             </td>
-            <td className="px-2 font-mono text-xs text-on-surface-variant">
-              {s.decoded_cwd}
+            <td
+              className="max-w-[160px] truncate px-2 font-mono text-xs text-on-surface-variant"
+              title={s.decoded_cwd}
+            >
+              {baseName(s.decoded_cwd)}
             </td>
             <td className="px-2 text-on-surface-variant/70">
               {timeAgo(s.last_message_at)}

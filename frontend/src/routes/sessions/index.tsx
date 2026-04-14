@@ -2,6 +2,7 @@ import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { Pin } from "lucide-react";
 import { useSessions, useProjects } from "~/api/queries";
 import { SessionsTable } from "~/components/sessions/SessionsTable";
+import { baseName } from "~/lib/format";
 
 export interface SessionsSearch {
   project_id?: string;
@@ -53,7 +54,7 @@ function SessionsPage() {
           <option value="">모든 프로젝트</option>
           {projects?.map((p) => (
             <option key={p.project_id} value={p.project_id}>
-              {p.decoded_cwd}
+              {baseName(p.decoded_cwd)}
             </option>
           ))}
         </select>
