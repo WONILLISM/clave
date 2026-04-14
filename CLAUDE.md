@@ -38,6 +38,8 @@
 | 문서 | 역할 | 언제 읽나 |
 |---|---|---|
 | `CLAUDE.md` (이 파일) | 하네스 핵심 — 규칙·제약·루프·관측·HITL | 세션 시작 시 자동 로드 |
+| `.claude/agents/AGENTS.md` | 에이전트 역할 빠른 참조 + 작업 흐름 | 에이전트 호출 시 |
+| `.claude/hooks/HOOKS.md` | 훅 설명 빠른 참조 + 추가 규칙 | 훅 수정·추가 시 |
 | `PLAN.md` | 전체 기획·로드맵·결정 내역 (§14) | 새 기능 설계 시 |
 | `backend/README.md` | 백엔드 실행·구조 가이드 | 백엔드 작업 시 |
 | `tests/test_architecture.py` | 건축적 제약의 코드 구현 | 제약 위반 에러 발생 시 |
@@ -53,6 +55,7 @@ clave/
 ├── .claude/
 │   ├── settings.json      # 프로젝트-로컬 hooks (피드백 루프)
 │   ├── hooks/             # PostToolUse, Stop 훅 스크립트
+│   ├── agents/            # 역할별 에이전트 (AGENTS.md + 개별 .md)
 │   └── launch.json        # Claude_Preview MCP 용 dev 서버
 ├── .mcp.json              # 프로젝트 스코프 MCP 설정
 ├── backend/
