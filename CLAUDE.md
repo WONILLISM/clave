@@ -71,8 +71,42 @@ cd frontend && bun run build        # dist/ 산출
 7. **타임존 인지 datetime**: 모든 timestamp 는 `datetime.now(UTC).isoformat(timespec="seconds")` 또는 jsonl 원본 ISO 8601 그대로. naive datetime 금지.
 8. **API 응답은 pydantic 모델로**. `dict` 직접 리턴 금지 (OpenAPI 스키마 보존).
 9. **테스트 픽스처는 진짜 `~/.claude/` 를 만지지 않는다.** 항상 `tmp_path` 위에 가짜 트리 (`tests/conftest.py` 의 `fake_claude_home` 참조).
-10. **커밋 메시지·문서·주석은 한국어** (사용자 선호). 코드 식별자·docstring 은 영어.
+10. **커밋 메시지·문서·주석은 한국어** (사용자 선호). 코드 식별자·docstring 은 영어. 커밋 메시지는 아래 "커밋 컨벤션" 을 따른다.
 11. **프론트엔드 스타일은 Tailwind v4 토큰 기반.** 디자인 토큰은 `frontend/src/styles/tokens.css` 의 `@theme` 블록에 CSS 변수로 정의하고 유틸리티로만 소비한다. **`@apply` 로 컴포넌트 클래스 만들지 않는다** (shadcn 스타일 재현 금지). 다크모드는 `html.dark` class 전략, radius 는 최대 6px, shadow 는 floating layer (팝오버·메뉴·토스트) 에만. UI 프리미티브는 ark-ui 헤드리스 + Tailwind 조합 — shadcn/ui 도입 금지.
+
+## 커밋 컨벤션
+
+Conventional Commits 기반, **제목은 한국어**.
+
+### 형식
+
+```
+<type>: <제목> (72자 이내)
+                                    ← 빈 줄
+- 변경사항 1                         ← 본문 (선택)
+- 변경사항 2
+```
+
+### 타입
+
+| 타입 | 용도 | 예시 |
+|---|---|---|
+| `feat` | 새 기능 | `feat: 세션 상세 마크다운 렌더링` |
+| `fix` | 버그 수정 | `fix: pinned 필터 boolean 비교 누락` |
+| `refactor` | 동작 변경 없는 구조 개선 | `refactor: SessionStream 컴포넌트 분리` |
+| `style` | UI/UX 개선 (기능 변경 없음) | `style: 프로젝트 컬럼 basename 표시` |
+| `docs` | 문서 | `docs: README.md 작성` |
+| `test` | 테스트 추가·수정 | `test: scanner 파서 엣지케이스 추가` |
+| `chore` | 빌드·설정·의존성 | `chore: .gitignore 정비` |
+| `perf` | 성능 개선 | `perf: 세션 목록 가상 스크롤 적용` |
+
+### 규칙
+
+1. **제목은 명령형 현재 시제** — "추가", "수정", "개선" (○) / "추가했음", "수정함" (✕)
+2. **`—` 뒤 보충 설명 허용** — `feat: Tool result 연결 — tool_use 카드에 실행 결과 표시`
+3. **마일스톤 커밋은 `feat` + 본문에 변경 목록** — `feat: W3-B/C 마크다운 렌더링 + Tool use 확장/축소`
+4. **Co-Authored-By 트레일러 사용 안 함** (사용자 지시)
+5. **scope 는 쓰지 않는다** — `feat(frontend):` (✕) → `feat:` (○). 이 프로젝트 규모에서 scope 는 노이즈.
 
 ## 하네스 자동화 (Hooks)
 
