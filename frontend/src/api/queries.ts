@@ -20,6 +20,7 @@ export type SessionsQuery =
   operations["list_sessions_endpoint_api_sessions_get"]["parameters"]["query"];
 
 export type TagListItem = components["schemas"]["TagListItem"];
+export type NoteRow = components["schemas"]["NoteRow"];
 
 // 검색 응답 (schema.ts 재생성 전이므로 인라인 정의)
 export interface SearchResponse {
@@ -77,6 +78,15 @@ export function useSession(id: string, offset = 0, limit = 200) {
         `/api/sessions/${id}?offset=${offset}&limit=${limit}`,
       ),
     enabled: !!id,
+  });
+}
+
+// ── Notes ───────────────────────────────────────────────────
+export function useNotes(sessionId: string) {
+  return useQuery({
+    queryKey: ["notes", sessionId],
+    queryFn: () => api<NoteRow[]>(`/api/sessions/${sessionId}/notes`),
+    enabled: !!sessionId,
   });
 }
 

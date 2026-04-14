@@ -11,15 +11,19 @@ import {
   Trash2,
   X,
 } from "lucide-react";
-import { useSession, useSessions, useTags } from "~/api/queries";
+import { useSession, useSessions, useTags, useNotes } from "~/api/queries";
 import {
   usePinSession,
   useUnpinSession,
   useAttachTag,
   useDetachTag,
+  useCreateNote,
+  useUpdateNote,
+  useDeleteNote,
 } from "~/api/mutations";
 import { SessionHistoryPane } from "~/components/session-detail/SessionHistoryPane";
 import { SessionStream } from "~/components/session-detail/SessionStream";
+import { NotesPanel } from "~/components/session-detail/NotesPanel";
 
 export const Route = createFileRoute("/sessions/$sessionId")({
   component: SessionDetailPage,
@@ -45,6 +49,11 @@ function SessionDetailPage() {
   const unpinMutation = useUnpinSession();
   const attachTag = useAttachTag();
   const detachTag = useDetachTag();
+
+  const { data: notes } = useNotes(sessionId);
+  const createNote = useCreateNote();
+  const updateNote = useUpdateNote();
+  const deleteNote = useDeleteNote();
 
   const handleLoadMore = useCallback(() => {
     if (data?.has_more) setOffset(data.next_offset);
@@ -206,6 +215,17 @@ function SessionDetailPage() {
             )}
           </div>
         </header>
+
+        {/* Notes */}
+        <NotesPanel
+          notes={notes ?? []}
+          onAdd={(body) => createNote.mutate({ sessionId, body })}
+          onUpdate={(noteId, body) =>
+            updateNote.mutate({ noteId, sessionId, body })
+          }
+          onDelete={(noteId) => deleteNote.mutate({ noteId, sessionId })}
+          isAdding={createNote.isPending}
+        />
 
         {/* Messages */}
         <div className="flex-1 overflow-y-auto">

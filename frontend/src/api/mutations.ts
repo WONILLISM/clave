@@ -8,6 +8,7 @@ import { api } from "./client";
 import type { components } from "./schema";
 
 export type TagRow = components["schemas"]["TagRow"];
+export type NoteRow = components["schemas"]["NoteRow"];
 export type RescanResponse = components["schemas"]["RescanResponse"];
 
 // ── Pin / Unpin ─────────────────────────────────────────────
@@ -75,6 +76,52 @@ export function useDetachTag() {
       qc.invalidateQueries({ queryKey: ["session", sessionId] });
       qc.invalidateQueries({ queryKey: ["sessions"] });
       qc.invalidateQueries({ queryKey: ["tags"] });
+    },
+  });
+}
+
+// ── Notes ───────────────────────────────────────────────────
+export function useCreateNote() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({
+      sessionId,
+      body,
+    }: {
+      sessionId: string;
+      body: string;
+    }) =>
+      api<NoteRow>(`/api/sessions/${sessionId}/notes`, {
+        method: "POST",
+        body: JSON.stringify({ body }),
+      }),
+    onSuccess: (_data, { sessionId }) => {
+      qc.invalidateQueries({ queryKey: ["notes", sessionId] });
+    },
+  });
+}
+
+export function useUpdateNote() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (vars: { noteId: number; sessionId: string; body: string }) =>
+      api<NoteRow>(`/api/notes/${vars.noteId}`, {
+        method: "PATCH",
+        body: JSON.stringify({ body: vars.body }),
+      }),
+    onSuccess: (_data, vars) => {
+      qc.invalidateQueries({ queryKey: ["notes", vars.sessionId] });
+    },
+  });
+}
+
+export function useDeleteNote() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (vars: { noteId: number; sessionId: string }) =>
+      api<void>(`/api/notes/${vars.noteId}`, { method: "DELETE" }),
+    onSuccess: (_data, vars) => {
+      qc.invalidateQueries({ queryKey: ["notes", vars.sessionId] });
     },
   });
 }
