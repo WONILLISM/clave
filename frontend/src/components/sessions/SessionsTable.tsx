@@ -61,8 +61,8 @@ export function SessionsTable({ sessions }: Props) {
                 {s.pinned && <Pin size={10} className="text-primary" />}
               </div>
             </td>
-            <td className="max-w-xs truncate px-2 font-medium text-on-surface transition-colors group-hover:text-primary">
-              {s.summary || s.session_id.slice(0, 16) + "…"}
+            <td className={`max-w-xs truncate px-2 font-medium transition-colors group-hover:text-primary ${s.summary ? "text-on-surface" : "italic text-on-surface-variant/50"}`}>
+              {s.summary || "제목 없음"}
             </td>
             <td
               className="max-w-[160px] truncate px-2 font-mono text-xs text-on-surface-variant"

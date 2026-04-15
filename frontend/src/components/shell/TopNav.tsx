@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { useNavigate } from "@tanstack/react-router";
-import { Search, SlidersHorizontal } from "lucide-react";
+import { Moon, Search, Sun } from "lucide-react";
 import { useSearch } from "../../api/queries";
 import { timeAgo, baseName } from "../../lib/format";
 
@@ -9,14 +9,34 @@ interface TopNavProps {
   children?: React.ReactNode;
 }
 
+function getInitialTheme(): "dark" | "light" {
+  if (typeof window === "undefined") return "dark";
+  const stored = localStorage.getItem("theme");
+  if (stored === "light" || stored === "dark") return stored;
+  return "dark"; // default dark-first
+}
+
 export function TopNav({ children }: TopNavProps) {
   const [query, setQuery] = useState("");
   const [debouncedQuery, setDebouncedQuery] = useState("");
   const [open, setOpen] = useState(false);
+  const [theme, setTheme] = useState<"dark" | "light">(getInitialTheme);
   const navigate = useNavigate();
   const wrapperRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const [dropdownPos, setDropdownPos] = useState({ top: 0, left: 0 });
+
+  // Sync theme class on <html>
+  useEffect(() => {
+    const root = document.documentElement;
+    root.classList.remove("dark", "light");
+    root.classList.add(theme);
+    localStorage.setItem("theme", theme);
+  }, [theme]);
+
+  const toggleTheme = useCallback(() => {
+    setTheme((prev) => (prev === "dark" ? "light" : "dark"));
+  }, []);
 
   // Debounce input → 300ms
   useEffect(() => {
@@ -104,8 +124,12 @@ export function TopNav({ children }: TopNavProps) {
         {children}
       </div>
       <div className="flex items-center gap-3">
-        <button className="text-on-surface/40 transition-opacity hover:text-on-surface">
-          <SlidersHorizontal size={18} />
+        <button
+          onClick={toggleTheme}
+          className="text-on-surface/40 transition-colors hover:text-on-surface"
+          title={theme === "dark" ? "라이트 모드" : "다크 모드"}
+        >
+          {theme === "dark" ? <Sun size={18} /> : <Moon size={18} />}
         </button>
       </div>
 
@@ -114,11 +138,10 @@ export function TopNav({ children }: TopNavProps) {
         createPortal(
           <div
             id="search-dropdown"
-            className="fixed z-[9999] w-96 overflow-hidden rounded border border-outline-variant/30 shadow-lg"
+            className="fixed z-[9999] w-96 overflow-hidden rounded border border-outline-variant/30 bg-surface-container shadow-lg"
             style={{
               top: dropdownPos.top,
               left: dropdownPos.left,
-              backgroundColor: "#1a1a16",
             }}
             onMouseDown={(e) => e.preventDefault()}
           >

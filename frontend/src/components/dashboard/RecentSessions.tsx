@@ -49,8 +49,8 @@ export function RecentSessions({ sessions }: Props) {
               className={`h-1.5 w-1.5 shrink-0 rounded-full ${dotClass(s.last_message_at)}`}
             />
             <div className="flex min-w-0 flex-1 flex-col gap-0.5">
-              <span className="truncate text-sm text-on-surface">
-                {s.summary || s.session_id.slice(0, 8)}
+              <span className={`truncate text-sm ${s.summary ? "text-on-surface" : "italic text-on-surface-variant/50"}`}>
+                {s.summary || "제목 없음"}
               </span>
               <span className="flex items-center gap-2 text-2xs text-on-surface-variant/50">
                 <span>{baseName(s.decoded_cwd)}</span>

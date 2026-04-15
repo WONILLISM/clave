@@ -1,7 +1,6 @@
 import { Outlet } from "@tanstack/react-router";
 import { Sidebar } from "./Sidebar";
 import { TopNav } from "./TopNav";
-import { StatusBar } from "./StatusBar";
 
 export function AppShell() {
   return (
@@ -12,7 +11,6 @@ export function AppShell() {
         <div className="flex-1 overflow-auto">
           <Outlet />
         </div>
-        <StatusBar />
       </main>
     </div>
   );

@@ -132,12 +132,82 @@
  * Base layer: Ink-Leaning 은 dark-first.
  * 시스템 light 모드 사용자도 일단 dark 로 시작 (W2 에서 toggle 추가).
  * ─────────────────────────────────────────────────────────────────── */
+/* ───────────────────────────────────────────────────────────────────────
+ * Light mode: html.light 클래스로 전환.
+ * 토큰 기반이라 CSS 변수만 오버라이드 — 컴포넌트 변경 불필요.
+ * ─────────────────────────────────────────────────────────────────── */
+html.light {
+  color-scheme: light;
+
+  /* Surface tier */
+  --color-background: #fcf9f5;
+  --color-surface: #fcf9f5;
+  --color-surface-dim: #f0ede8;
+  --color-surface-bright: #fcf9f5;
+  --color-surface-container-lowest: #ffffff;
+  --color-surface-container-low: #f7f4ef;
+  --color-surface-container: #f0ede8;
+  --color-surface-container-high: #eae7e2;
+  --color-surface-container-highest: #e4e1dc;
+  --color-surface-variant: #e4e1dc;
+  --color-surface-tint: #305cb0;
+  --color-inverse-surface: #1a1a16;
+  --color-inverse-on-surface: #e8e5dd;
+
+  /* On-surface */
+  --color-on-background: #1a1a16;
+  --color-on-surface: #1a1a16;
+  --color-on-surface-variant: #565552;
+
+  /* Primary */
+  --color-primary: #305cb0;
+  --color-primary-dim: #2b58ac;
+  --color-primary-container: #d9e2ff;
+  --color-primary-fixed: #d9e2ff;
+  --color-primary-fixed-dim: #c4d4ff;
+  --color-on-primary: #ffffff;
+  --color-on-primary-container: #094396;
+  --color-on-primary-fixed: #003b8a;
+  --color-on-primary-fixed-variant: #2b58ac;
+  --color-inverse-primary: #afc6ff;
+
+  /* Secondary */
+  --color-secondary: #5b5c55;
+  --color-secondary-dim: #5b5c55;
+  --color-secondary-container: #e4e3d9;
+  --color-on-secondary: #ffffff;
+  --color-on-secondary-container: #3b3c35;
+
+  /* Tertiary */
+  --color-tertiary: #534f6a;
+  --color-tertiary-dim: #534f6a;
+  --color-tertiary-container: #d7d0f1;
+  --color-on-tertiary: #ffffff;
+  --color-on-tertiary-container: #4a4661;
+
+  /* State */
+  --color-error: #bb5551;
+  --color-error-dim: #93403d;
+  --color-error-container: #ffdad6;
+  --color-on-error: #ffffff;
+  --color-on-error-container: #7f2927;
+
+  /* Outline */
+  --color-outline: #76766f;
+  --color-outline-variant: #c8c7c0;
+
+  /* Shadow — 라이트에선 어두운 톤 */
+  --shadow-popover: 0 4px 24px 0 rgb(0 0 0 / 0.08);
+  --shadow-menu: 0 6px 28px 0 rgb(0 0 0 / 0.10);
+  --shadow-toast: 0 8px 40px 0 rgb(0 0 0 / 0.12);
+}
+
 @layer base {
   html {
     color-scheme: dark;
   }
-  html:not(.light) {
-    /* dark 가 default — html.dark 와 동등 효과 */
+  html.light {
+    color-scheme: light;
   }
   body {
     background-color: var(--color-background);

@@ -44,6 +44,28 @@
   .hljs-addition { color: #c3e88d; }
   .hljs-deletion { color: #f07178; }
 
+  /* highlight.js — 라이트 테마 오버라이드 */
+  html.light .hljs { color: var(--color-on-surface); }
+  html.light .hljs-keyword,
+  html.light .hljs-selector-tag,
+  html.light .hljs-built_in { color: #7c4dff; }
+  html.light .hljs-string,
+  html.light .hljs-attr { color: #2e7d32; }
+  html.light .hljs-number,
+  html.light .hljs-literal { color: #e65100; }
+  html.light .hljs-comment,
+  html.light .hljs-quote { color: #90a4ae; font-style: italic; }
+  html.light .hljs-function .hljs-title,
+  html.light .hljs-title.function_ { color: #1565c0; }
+  html.light .hljs-type,
+  html.light .hljs-class .hljs-title { color: #f57f17; }
+  html.light .hljs-variable,
+  html.light .hljs-template-variable { color: #c62828; }
+  html.light .hljs-meta { color: #0097a7; }
+  html.light .hljs-punctuation { color: #0097a7; }
+  html.light .hljs-addition { color: #2e7d32; }
+  html.light .hljs-deletion { color: #c62828; }
+
   /* 포커스 링 — Ghost Border 룰 (outline_variant 의 그 톤) */
   :focus-visible {
     outline: 2px solid var(--color-primary-dim);

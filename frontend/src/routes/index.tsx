@@ -13,12 +13,12 @@ function DashboardPage() {
   const { data: health } = useHealth();
   const { data: projects } = useProjects();
   const { data: sessions } = useSessions({ limit: 5 });
+  const { data: pinnedData } = useSessions({ pinned: true, limit: 100 });
   const { data: tags } = useTags();
 
   const totalSessions = health?.indexed_sessions ?? 0;
   const totalProjects = projects?.length ?? 0;
-  const pinnedSessions =
-    sessions?.items?.filter((s) => s.pinned).length ?? 0;
+  const pinnedSessions = pinnedData?.items.length ?? 0;
   const totalTags = tags?.length ?? 0;
 
   const recentSessions = sessions?.items ?? [];

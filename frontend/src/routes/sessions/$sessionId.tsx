@@ -7,8 +7,6 @@ import {
   Pin,
   PinOff,
   Tag,
-  Archive,
-  Trash2,
   X,
 } from "lucide-react";
 import { useSession, useSessions, useTags, useNotes } from "~/api/queries";
@@ -21,6 +19,7 @@ import {
   useUpdateNote,
   useDeleteNote,
 } from "~/api/mutations";
+import { shortenPath } from "~/lib/format";
 import { SessionHistoryPane } from "~/components/session-detail/SessionHistoryPane";
 import { SessionStream } from "~/components/session-detail/SessionStream";
 import { NotesPanel } from "~/components/session-detail/NotesPanel";
@@ -133,12 +132,16 @@ function SessionDetailPage() {
           <div className="flex items-start justify-between">
             <div className="space-y-1">
               <div className="flex items-center gap-2">
-                <h2 className="font-mono text-md font-bold text-on-surface">
-                  {sessionId}
+                <h2 className="text-md font-bold text-on-surface">
+                  {meta.summary || sessionId.slice(0, 8)}
                 </h2>
+                <span className="font-mono text-xs text-outline" title={sessionId}>
+                  {sessionId.slice(0, 8)}
+                </span>
                 <button
                   onClick={handleCopyId}
                   className="text-outline transition-colors hover:text-primary"
+                  title="ID 복사"
                 >
                   <Copy size={14} />
                 </button>
@@ -150,7 +153,7 @@ function SessionDetailPage() {
                 <div className="flex items-center gap-1.5 rounded border border-outline-variant/30 bg-surface-container-highest px-2 py-0.5">
                   <Folder size={14} className="text-outline" />
                   <span className="font-mono text-sm text-outline-variant">
-                    {meta.decoded_cwd}
+                    {shortenPath(meta.decoded_cwd)}
                   </span>
                 </div>
                 <div className="flex items-center gap-1.5 text-outline">
@@ -237,35 +240,18 @@ function SessionDetailPage() {
         </div>
 
         {/* Footer actions */}
-        <footer className="flex items-center justify-between border-t border-outline-variant/30 bg-surface-variant/70 p-4 backdrop-blur-md">
-          <div className="flex items-center gap-3">
-            <button
-              onClick={handleTogglePin}
-              disabled={pinMutation.isPending || unpinMutation.isPending}
-              className={`flex items-center gap-2 rounded px-3 py-2 text-sm font-medium transition-all ${
-                meta.pinned
-                  ? "text-primary hover:bg-surface-container-highest"
-                  : "text-outline hover:bg-surface-container-highest hover:text-on-surface"
-              }`}
-            >
-              {meta.pinned ? <PinOff size={18} /> : <Pin size={18} />}
-              {meta.pinned ? "고정 해제" : "고정"}
-            </button>
-            <div className="mx-1 h-6 w-px bg-outline-variant/30" />
-            <button
-              disabled
-              className="flex items-center gap-2 rounded px-3 py-2 text-sm font-medium text-outline opacity-50"
-            >
-              <Archive size={18} />
-              아카이브
-            </button>
-          </div>
+        <footer className="flex items-center border-t border-outline-variant/30 bg-surface-variant/70 p-4 backdrop-blur-md">
           <button
-            disabled
-            className="flex items-center gap-2 rounded px-3 py-2 text-sm font-medium text-error-dim opacity-50"
+            onClick={handleTogglePin}
+            disabled={pinMutation.isPending || unpinMutation.isPending}
+            className={`flex items-center gap-2 rounded px-3 py-2 text-sm font-medium transition-all ${
+              meta.pinned
+                ? "text-primary hover:bg-surface-container-highest"
+                : "text-outline hover:bg-surface-container-highest hover:text-on-surface"
+            }`}
           >
-            <Trash2 size={18} />
-            세션 삭제
+            {meta.pinned ? <PinOff size={18} /> : <Pin size={18} />}
+            {meta.pinned ? "고정 해제" : "고정"}
           </button>
         </footer>
       </section>

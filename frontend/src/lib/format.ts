@@ -21,3 +21,8 @@ export function baseName(cwd: string): string {
   const idx = cwd.lastIndexOf("/");
   return idx >= 0 ? cwd.slice(idx + 1) : cwd;
 }
+
+/** /Users/<user>/... → ~/... 축약 */
+export function shortenPath(path: string): string {
+  return path.replace(/^\/Users\/[^/]+/, "~");
+}
