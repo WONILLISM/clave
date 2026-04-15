@@ -357,8 +357,11 @@ Klog (Claude Log), Den (나만의 공간), AELIQ Hub (팀 배포 브랜딩), Lum
 | W2 | Projects·Sessions·Session Detail 통합 | 세 화면 + 인터랙션 (Pin/Tag/Filter/Rescan) | ✅ 완료 |
 | W3 | 마크다운 렌더링 + Tool use + FTS5 검색 + 대시보드 홈 | 세션 뷰어 완성 + 검색 + 홈 | ✅ 완료 |
 | W4 | Note + Artifact 스캐너 + Highlight (축소판) | Note CRUD + Artifact 목록 + Highlight 선택·저장 | ✅ 완료 (Knowledge 승격은 다음 라운드) |
-| W4.5 | Artifact 재설계 (path 중심) + Highlight → Knowledge 승격 | `/artifacts` path-grouped + 세션 역참조 + Prompts/Recipes/Snippets | 🔜 다음 |
-| W5 | **Housekeeping 탐지 룰 + 격리/복원/유예 + Dry-run UI** | 🧹 탭 개인 사용 가능 | |
+| W4.5-A | Artifact 재설계 (path 중심) | `/artifacts` path-grouped + 세션 역참조 drawer + 세션 상세 ArtifactsPanel 제거 | ✅ 완료 |
+| W4.5-B | Highlight → Knowledge 승격 (Prompt/Recipe/Snippet) | — | ⏸ 보류 (데이터 축적 후 §14 #10) |
+| W5-MVP0 | **Housekeeping 탐지 (read-only)** | 🧹 `/housekeeping` 탭 — 룰 3개 (오래된 세션 / 빈 프로젝트 / 고아 프로젝트), 액션 없음 | ✅ 완료 |
+| W5-MVP1 | Housekeeping 격리 파이프라인 | `~/.clave-trash/` 이동 + 30일 유예 + 복원 + Journal | 🔜 다음 (dogfooding 후 착수) |
+| W5-MVP2 | Housekeeping 추가 탐지 룰 + 자동화 L1 | 비대 history.jsonl·미사용 플러그인·중복 프로젝트 등, 주 1회 스캔 리포트 | 후속 |
 | W6 | Scheduled task console + 디바이스 sync + Env 탭 이식 | 팀 배포 전 안정화 | |
 | W7+ | Team export, 템플릿 관리자, 권한 모델, AELIQ 정리 프리셋 | 팀 배포 베타 | |
 
@@ -393,7 +396,9 @@ Klog (Claude Log), Den (나만의 공간), AELIQ Hub (팀 배포 브랜딩), Lum
 | 6 | Housekeeping 기본 자동화 레벨 | **L0 (완전 수동)** | L1~L3 는 Settings opt-in (§6-bis) |
 | 7 | 팀 배포 시점 | **현 단계 고려 안 함** | §3 비목표로 명시. 개인 dogfooding 후 별도 라운드 |
 | 8 | W4 Highlight 범위 | **축소판 (Create/List/Delete 만)** | 2026-04-15. Knowledge 승격(Prompt/Recipe/Snippet) 은 분리 — 하이라이트 데이터 쌓인 뒤 패턴 보고 승격 UX 설계. `kind` 컬럼만 미리 두고 값은 `"insight"` 고정 |
-| 9 | Artifact 재설계 방향 | **A: path 중심 카탈로그 + 세션 역참조** | 2026-04-15. 현 이벤트 로그 방식은 signal < noise (같은 파일 Write/Edit 반복 → 중복 행, tool_use 카드와 정보 겹침, 파일→세션 역참조 불가). 다음 라운드에서 `/artifacts` 를 `1 path = 1 행` (수정 횟수 + 마지막 세션) 으로 재구성, 파일 행 클릭 시 세션들 drawer, 세션 상세의 ArtifactsPanel 은 제거 |
+| 9 | Artifact 재설계 방향 | **A: path 중심 카탈로그 + 세션 역참조** | 2026-04-15. 현 이벤트 로그 방식은 signal < noise (같은 파일 Write/Edit 반복 → 중복 행, tool_use 카드와 정보 겹침, 파일→세션 역참조 불가). 다음 라운드에서 `/artifacts` 를 `1 path = 1 행` (수정 횟수 + 마지막 세션) 으로 재구성, 파일 행 클릭 시 세션들 drawer, 세션 상세의 ArtifactsPanel 은 제거. **W4.5-A 로 commit 89ab29a 완료** |
+| 10 | W4.5-B Highlight → Knowledge 승격 | **보류** | 2026-04-15. 하이라이트 데이터 충분히 쌓이지 않은 상태에서 Prompt/Recipe/Snippet 승격 UX 설계는 허공 작업. dogfooding 으로 50개+ 누적되어 패턴이 보이면 재개 |
+| 11 | W5 Housekeeping 단계 분할 | **MVP-0 (탐지) → MVP-1 (격리·복원) → MVP-2 (추가 룰·자동화)** | 2026-04-15. 11개 룰 × 격리 파이프라인 × L0~L3 자동화 한 번에 붙이면 스코프 폭발. 실제 `~/.claude/` 실측 결과 agents/·skills/·tasks/·scheduled-tasks/ 부재 → 룰 11개 중 실효 3개. MVP-0 (탐지 전용 read-only) **완료 commit 64dd0ae** — dogfooding 으로 룰 정확도 검증 후 MVP-1 격리 설계 정확도 ↑ |
 
 ### 다음 라운드 (착수 전 확정 필요)
 
