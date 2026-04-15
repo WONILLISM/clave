@@ -2,6 +2,7 @@
 # Clave - dev launcher.
 #   ./start.sh         백엔드만 (FastAPI on 127.0.0.1:8765)
 #   ./start.sh dev     백엔드 + 프론트 (Vite on 5173, /api 프록시)
+#   ./start.sh status  현재 떠 있는 백엔드/프론트 확인 (pid + health)
 set -euo pipefail
 cd "$(dirname "$0")"
 
@@ -10,14 +11,58 @@ export PATH="$HOME/.local/bin:$HOME/.bun/bin:$PATH"
 
 mode="${1:-backend}"
 
+# ANSI — tty 일 때만 색. 파이프/리다이렉트엔 plain.
+if [ -t 1 ]; then
+  C_OK=$'\033[32m'; C_ERR=$'\033[31m'; C_DIM=$'\033[2m'; C_RST=$'\033[0m'
+else
+  C_OK=""; C_ERR=""; C_DIM=""; C_RST=""
+fi
+
+# 포트 상태 한 줄 출력: "backend  8765  up    pid=62986  health=200  reload=on"
+report_port() {
+  local label="$1" port="$2" health_path="${3:-}"
+  local pids pid procinfo
+  pids=$(lsof -ti ":${port}" 2>/dev/null || true)
+  if [ -z "$pids" ]; then
+    printf "  %-8s :%s  %sdown%s\n" "$label" "$port" "$C_ERR" "$C_RST"
+    return
+  fi
+  pid=$(echo "$pids" | head -n 1)
+  procinfo=$(ps -o comm= -p "$pid" 2>/dev/null | head -n 1 | awk -F/ '{print $NF}')
+  printf "  %-8s :%s  %sup%s    pid=%s (%s)" \
+    "$label" "$port" "$C_OK" "$C_RST" "$pid" "${procinfo:-?}"
+  if [ -n "$health_path" ]; then
+    local code
+    code=$(curl -sS -o /dev/null -w "%{http_code}" --max-time 2 \
+      "http://127.0.0.1:${port}${health_path}" 2>/dev/null || echo "---")
+    if [ "$code" = "200" ]; then
+      printf "  health=%s%s%s" "$C_OK" "$code" "$C_RST"
+    else
+      printf "  health=%s%s%s" "$C_ERR" "$code" "$C_RST"
+    fi
+  fi
+  # reload 감지 — uvicorn --reload 는 부모 + 자식 2프로세스.
+  if [ "$label" = "backend" ] && [ "$(echo "$pids" | wc -l | tr -d ' ')" -gt 1 ]; then
+    printf "  %sreload=on%s" "$C_DIM" "$C_RST"
+  fi
+  printf "\n"
+}
+
 case "$mode" in
   backend)
     cd backend
     exec uv run --quiet python -m clave
     ;;
+  status)
+    report_port backend  8765 /api/health
+    report_port frontend 5173
+    exit 0
+    ;;
   dev)
     # 백엔드를 백그라운드로, 프론트는 포그라운드. Ctrl-C 시 둘 다 정리.
-    (cd backend && uv run --quiet python -m clave) &
+    # CLAVE_RELOAD=1 — backend/src/ 변경 시 uvicorn 자동 재기동 (DELETE 같은 신규
+    # 라우트 추가 후 재기동 깜빡임 방지).
+    (cd backend && CLAVE_RELOAD=1 uv run --quiet python -m clave) &
     backend_pid=$!
     trap 'kill $backend_pid 2>/dev/null || true' EXIT INT TERM
     # 프론트 뜨기 전에 백엔드 health 가 200 찍을 때까지 대기 (uv 첫 실행 시 venv 빌드 1~2초 race 회피).
@@ -38,7 +83,7 @@ case "$mode" in
     exec bun --bun vite
     ;;
   *)
-    echo "usage: $0 [backend|dev]" >&2
+    echo "usage: $0 [backend|dev|status]" >&2
     exit 1
     ;;
 esac
