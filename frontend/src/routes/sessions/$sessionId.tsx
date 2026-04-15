@@ -9,7 +9,13 @@ import {
   Tag,
   X,
 } from "lucide-react";
-import { useSession, useSessions, useTags, useNotes } from "~/api/queries";
+import {
+  useSession,
+  useSessions,
+  useTags,
+  useNotes,
+  useSessionArtifacts,
+} from "~/api/queries";
 import {
   usePinSession,
   useUnpinSession,
@@ -23,6 +29,7 @@ import { shortenPath } from "~/lib/format";
 import { SessionHistoryPane } from "~/components/session-detail/SessionHistoryPane";
 import { SessionStream } from "~/components/session-detail/SessionStream";
 import { NotesPanel } from "~/components/session-detail/NotesPanel";
+import { ArtifactsPanel } from "~/components/session-detail/ArtifactsPanel";
 
 export const Route = createFileRoute("/sessions/$sessionId")({
   component: SessionDetailPage,
@@ -50,6 +57,7 @@ function SessionDetailPage() {
   const detachTag = useDetachTag();
 
   const { data: notes } = useNotes(sessionId);
+  const { data: artifacts } = useSessionArtifacts(sessionId);
   const createNote = useCreateNote();
   const updateNote = useUpdateNote();
   const deleteNote = useDeleteNote();
@@ -229,6 +237,9 @@ function SessionDetailPage() {
           onDelete={(noteId) => deleteNote.mutate({ noteId, sessionId })}
           isAdding={createNote.isPending}
         />
+
+        {/* Artifacts */}
+        <ArtifactsPanel artifacts={artifacts ?? []} />
 
         {/* Messages */}
         <div className="flex-1 overflow-y-auto">

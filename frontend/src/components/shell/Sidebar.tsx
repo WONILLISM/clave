@@ -11,15 +11,17 @@ import {
 } from "lucide-react";
 import { useHealth } from "~/api/queries";
 
+type NavTo = "/" | "/sessions" | "/projects" | "/artifacts";
+
 type NavItem =
-  | { to: "/" | "/sessions" | "/projects"; label: string; icon: LucideIcon; disabled?: false }
+  | { to: NavTo; label: string; icon: LucideIcon; disabled?: false }
   | { to: string; label: string; icon: LucideIcon; disabled: true };
 
 const navItems: NavItem[] = [
   { to: "/", label: "홈", icon: LayoutDashboard },
   { to: "/sessions", label: "세션", icon: Terminal },
   { to: "/projects", label: "프로젝트", icon: FolderOpen },
-  { to: "#", label: "산출물", icon: Package, disabled: true },
+  { to: "/artifacts", label: "산출물", icon: Package },
   { to: "#", label: "지식", icon: BookOpen, disabled: true },
   { to: "#", label: "작업", icon: CheckCircle2, disabled: true },
 ];
@@ -53,7 +55,7 @@ export function Sidebar() {
           ) : (
             <Link
               key={item.to}
-              to={item.to as "/" | "/sessions" | "/projects"}
+              to={item.to as NavTo}
               activeOptions={{ exact: item.to === "/" }}
               className="flex items-center gap-3 px-4 py-2 text-on-surface/50 transition-colors duration-150 hover:bg-surface-container-low hover:text-on-surface"
               activeProps={{

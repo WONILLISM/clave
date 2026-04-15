@@ -81,6 +81,30 @@ def extract_file_paths(tool_use_blocks: list[dict]) -> set[str]:
     return paths
 
 
+# 산출물 도구 — Write/Edit/MultiEdit 만 "세션이 만든 파일"로 간주.
+# Read/Glob 은 참조, Bash 는 파싱 불안정이라 제외.
+_ARTIFACT_TOOLS = frozenset({"Write", "Edit", "MultiEdit"})
+
+
+def extract_artifacts(tool_use_blocks: list[dict]) -> list[tuple[str, str]]:
+    """산출물로 취급할 (path, tool_name) 튜플 목록.
+
+    message_uuid / timestamp 는 호출측 (aggregator) 에서 결합한다.
+    """
+    out: list[tuple[str, str]] = []
+    for block in tool_use_blocks:
+        name = block.get("name")
+        if name not in _ARTIFACT_TOOLS:
+            continue
+        inp = block.get("input")
+        if not isinstance(inp, dict):
+            continue
+        fp = inp.get("file_path")
+        if isinstance(fp, str) and fp:
+            out.append((fp, name))
+    return out
+
+
 def normalise(line_obj: dict) -> MessageItem | None:
     """Convert a raw jsonl object into a MessageItem. Returns None if utterly unrecognisable."""
     rec_type = line_obj.get("type")

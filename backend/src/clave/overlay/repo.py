@@ -8,6 +8,8 @@ from typing import Any
 import aiosqlite
 
 from clave.models import (
+    ArtifactListItem,
+    ArtifactRow,
     NoteRow,
     ProjectListItem,
     ProjectRow,
@@ -441,6 +443,117 @@ async def update_note(conn: aiosqlite.Connection, note_id: int, body: str) -> No
 async def delete_note(conn: aiosqlite.Connection, note_id: int) -> bool:
     cur = await conn.execute("DELETE FROM notes WHERE note_id = ?", (note_id,))
     return cur.rowcount > 0
+
+
+# ---------- Artifacts ----------
+
+
+async def delete_artifacts_for_session(conn: aiosqlite.Connection, session_id: str) -> None:
+    """재스캔 직전, 해당 세션의 artifact 행을 전부 비움 (delete-then-insert 패턴)."""
+    await conn.execute("DELETE FROM artifacts WHERE session_id = ?", (session_id,))
+
+
+async def bulk_insert_artifacts(
+    conn: aiosqlite.Connection,
+    session_id: str,
+    artifacts: list[tuple[str, str, str | None, str | None]],
+    indexed_at: str,
+) -> int:
+    """artifacts 튜플 (path, tool_name, message_uuid, created_at) 목록을 executemany 로 삽입.
+
+    created_at 이 None 이면 indexed_at 로 폴백.
+    반환: 삽입된 행 수.
+    """
+    if not artifacts:
+        return 0
+    rows = [
+        (session_id, path, tool_name, message_uuid, created_at or indexed_at, indexed_at)
+        for (path, tool_name, message_uuid, created_at) in artifacts
+    ]
+    await conn.executemany(
+        """
+        INSERT OR IGNORE INTO artifacts
+            (session_id, path, tool_name, message_uuid, created_at, indexed_at)
+        VALUES (?, ?, ?, ?, ?, ?)
+        """,
+        rows,
+    )
+    return len(rows)
+
+
+async def list_artifacts_for_session(
+    conn: aiosqlite.Connection, session_id: str
+) -> list[ArtifactRow]:
+    cur = await conn.execute(
+        """
+        SELECT artifact_id, session_id, path, tool_name, message_uuid, created_at
+        FROM artifacts
+        WHERE session_id = ?
+        ORDER BY created_at ASC, artifact_id ASC
+        """,
+        (session_id,),
+    )
+    # exists 는 API 레이어에서 계산하므로 여기선 placeholder(False).
+    return [
+        ArtifactRow(
+            artifact_id=r["artifact_id"],
+            session_id=r["session_id"],
+            path=r["path"],
+            tool_name=r["tool_name"],
+            message_uuid=r["message_uuid"],
+            created_at=r["created_at"],
+            exists=False,
+        )
+        for r in await cur.fetchall()
+    ]
+
+
+async def list_all_artifacts(
+    conn: aiosqlite.Connection,
+    *,
+    limit: int = 50,
+    offset: int = 0,
+    tool_filter: str | None = None,
+    path_contains: str | None = None,
+) -> list[ArtifactListItem]:
+    """전역 카탈로그. 세션 요약·cwd 조인하여 반환. 최신 created_at DESC."""
+    clauses: list[str] = []
+    params: list[Any] = []
+    if tool_filter:
+        clauses.append("a.tool_name = ?")
+        params.append(tool_filter)
+    if path_contains:
+        clauses.append("a.path LIKE ?")
+        params.append(f"%{path_contains}%")
+    where = f"WHERE {' AND '.join(clauses)}" if clauses else ""
+    params.extend([limit, offset])
+    cur = await conn.execute(
+        f"""
+        SELECT a.artifact_id, a.session_id, a.path, a.tool_name, a.message_uuid,
+               a.created_at, s.summary AS session_summary, p.decoded_cwd AS session_decoded_cwd
+        FROM artifacts a
+        JOIN sessions s ON s.session_id = a.session_id
+        LEFT JOIN projects p ON p.project_id = s.project_id
+        {where}
+        ORDER BY a.created_at DESC, a.artifact_id DESC
+        LIMIT ? OFFSET ?
+        """,
+        params,
+    )
+    return [
+        ArtifactListItem(
+            artifact_id=r["artifact_id"],
+            session_id=r["session_id"],
+            path=r["path"],
+            tool_name=r["tool_name"],
+            message_uuid=r["message_uuid"],
+            created_at=r["created_at"],
+            exists=False,
+            session_summary=r["session_summary"],
+            session_decoded_cwd=r["session_decoded_cwd"],
+        )
+        for r in await cur.fetchall()
+    ]
 
 
 # ---------- Search (FTS5) ----------

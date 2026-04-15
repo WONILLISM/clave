@@ -1,10 +1,14 @@
 from __future__ import annotations
 
+import os
+
 import aiosqlite
-from fastapi import APIRouter, Depends, HTTPException, Response, status
+from fastapi import APIRouter, Depends, HTTPException, Query, Response, status
 
 from clave.api import get_db
 from clave.models import (
+    ArtifactListResponse,
+    ArtifactRow,
     AttachTagRequest,
     CreateNoteRequest,
     CreateTagRequest,
@@ -141,3 +145,41 @@ async def delete_note_endpoint(
         raise HTTPException(status_code=404, detail="note not found")
     await db.commit()
     return Response(status_code=status.HTTP_204_NO_CONTENT)
+
+
+# ---------- Artifacts ----------
+
+
+@router.get("/sessions/{session_id}/artifacts", response_model=list[ArtifactRow])
+async def list_session_artifacts_endpoint(
+    session_id: str, db: aiosqlite.Connection = Depends(get_db)
+) -> list[ArtifactRow]:
+    rows = await repo.list_artifacts_for_session(db, session_id)
+    # exists 동적 계산 — DB 에 저장하지 않고 응답 시점 os.path.exists.
+    for r in rows:
+        r.exists = os.path.exists(r.path)
+    return rows
+
+
+@router.get("/artifacts", response_model=ArtifactListResponse)
+async def list_artifacts_endpoint(
+    limit: int = Query(50, ge=1, le=500),
+    offset: int = Query(0, ge=0),
+    tool: str | None = Query(None, description="'Write' | 'Edit' | 'MultiEdit'"),
+    path_contains: str | None = Query(None, description="path substring (LIKE)"),
+    db: aiosqlite.Connection = Depends(get_db),
+) -> ArtifactListResponse:
+    items = await repo.list_all_artifacts(
+        db,
+        limit=limit,
+        offset=offset,
+        tool_filter=tool,
+        path_contains=path_contains,
+    )
+    for it in items:
+        it.exists = os.path.exists(it.path)
+    # 단순 offset 페이지네이션 — next_cursor 는 현재 None 유지 (향후 확장 여지).
+    next_cursor: str | None = None
+    if len(items) == limit:
+        next_cursor = str(offset + limit)
+    return ArtifactListResponse(items=items, next_cursor=next_cursor)

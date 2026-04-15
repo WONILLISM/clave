@@ -52,6 +52,18 @@ class NoteRow(BaseModel):
     updated_at: str
 
 
+class ArtifactRow(BaseModel):
+    """세션이 Write/Edit/MultiEdit 로 만든 파일 한 항목."""
+
+    artifact_id: int
+    session_id: str
+    path: str
+    tool_name: str  # 'Write' | 'Edit' | 'MultiEdit'
+    message_uuid: str | None = None
+    created_at: str
+    exists: bool  # 동적 계산 (응답 직전 os.path.exists)
+
+
 # ---------- API response wrappers ----------
 
 
@@ -120,6 +132,18 @@ class UpdateNoteRequest(BaseModel):
 class SearchResponse(BaseModel):
     items: list[SessionListItem]
     query: str
+
+
+class ArtifactListItem(ArtifactRow):
+    """Global 카탈로그용. ArtifactRow 와 동일 필드 + 세션 요약 메타."""
+
+    session_summary: str | None = None
+    session_decoded_cwd: str | None = None
+
+
+class ArtifactListResponse(BaseModel):
+    items: list[ArtifactListItem]
+    next_cursor: str | None = None
 
 
 class RescanRequest(BaseModel):

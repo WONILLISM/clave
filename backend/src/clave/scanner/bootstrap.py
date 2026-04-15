@@ -48,6 +48,8 @@ async def scan_project(
 
     jsonl_files = sorted(project_dir.glob("*.jsonl"))
     new_rows: list[SessionRow] = []
+    # session_id → artifacts 튜플 목록 (fresh-parsed 세션만; skip 된 세션은 DB 그대로 둠)
+    artifacts_by_session: dict[str, list[tuple[str, str, str | None, str | None]]] = {}
     skipped = 0
     sessions_started: list[str] = []
     sessions_last: list[str] = []
@@ -86,6 +88,8 @@ async def scan_project(
 
         session_dir = project_dir / session_id
         sub_count = _count_subagent_files(session_dir)
+
+        artifacts_by_session[session_id] = summary.artifacts
 
         new_rows.append(
             SessionRow(
@@ -133,6 +137,11 @@ async def scan_project(
         await repo.upsert_project(conn, proj)
         for row in new_rows:
             await repo.upsert_session(conn, row, decoded_cwd=decoded)
+            # fresh-parse 된 세션은 artifact 를 delete-then-insert 로 원자적 교체.
+            artifacts = artifacts_by_session.get(row.session_id, [])
+            await repo.delete_artifacts_for_session(conn, row.session_id)
+            if artifacts:
+                await repo.bulk_insert_artifacts(conn, row.session_id, artifacts, row.indexed_at)
 
     return len(new_rows), skipped
 

@@ -5,7 +5,15 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from pathlib import Path
 
-from clave.scanner.parser import ParseStats, extract_file_paths, iter_jsonl
+from clave.scanner.parser import (
+    ParseStats,
+    extract_artifacts,
+    extract_file_paths,
+    iter_jsonl,
+)
+
+# (path, tool_name, message_uuid, created_at)
+ArtifactTuple = tuple[str, str, str | None, str | None]
 
 
 @dataclass(slots=True)
@@ -22,6 +30,7 @@ class SessionSummary:
     cc_version: str | None = None
     cwd_from_user_msg: str | None = None
     file_paths: set[str] = field(default_factory=set)
+    artifacts: list[ArtifactTuple] = field(default_factory=list)
     parse_stats: ParseStats = field(default_factory=ParseStats)
 
 
@@ -48,6 +57,8 @@ def aggregate_jsonl(path: Path, session_id: str) -> SessionSummary:
             if item.tool_use:
                 s.tool_use_count += len(item.tool_use)
                 s.file_paths.update(extract_file_paths(item.tool_use))
+                for path, tool_name in extract_artifacts(item.tool_use):
+                    s.artifacts.append((path, tool_name, item.uuid, ts))
 
         if item.git_branch:
             s.git_branch = item.git_branch

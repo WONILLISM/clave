@@ -21,6 +21,12 @@ export type SessionsQuery =
 
 export type TagListItem = components["schemas"]["TagListItem"];
 export type NoteRow = components["schemas"]["NoteRow"];
+export type ArtifactRow = components["schemas"]["ArtifactRow"];
+export type ArtifactListItem = components["schemas"]["ArtifactListItem"];
+export type ArtifactListResponse = components["schemas"]["ArtifactListResponse"];
+
+export type ArtifactsQuery =
+  operations["list_artifacts_endpoint_api_artifacts_get"]["parameters"]["query"];
 
 // 검색 응답 (schema.ts 재생성 전이므로 인라인 정의)
 export interface SearchResponse {
@@ -87,6 +93,31 @@ export function useNotes(sessionId: string) {
     queryKey: ["notes", sessionId],
     queryFn: () => api<NoteRow[]>(`/api/sessions/${sessionId}/notes`),
     enabled: !!sessionId,
+  });
+}
+
+// ── Artifacts ───────────────────────────────────────────────
+export function useSessionArtifacts(sessionId: string) {
+  return useQuery({
+    queryKey: ["artifacts", sessionId],
+    queryFn: () =>
+      api<ArtifactRow[]>(`/api/sessions/${sessionId}/artifacts`),
+    enabled: !!sessionId,
+  });
+}
+
+export function useArtifacts(params?: ArtifactsQuery) {
+  const search = new URLSearchParams();
+  if (params) {
+    for (const [k, v] of Object.entries(params)) {
+      if (v != null) search.set(k, String(v));
+    }
+  }
+  const qs = search.toString();
+  return useQuery({
+    queryKey: ["artifacts-list", params ?? {}],
+    queryFn: () =>
+      api<ArtifactListResponse>(`/api/artifacts${qs ? `?${qs}` : ""}`),
   });
 }
 
