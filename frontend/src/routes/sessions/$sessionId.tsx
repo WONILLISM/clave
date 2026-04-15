@@ -9,6 +9,8 @@ import {
   Tag,
   X,
   AlertCircle,
+  ArrowLeft,
+  Trash2,
 } from "lucide-react";
 import {
   useSession,
@@ -124,28 +126,91 @@ function SessionDetailPage() {
     const is410 = error instanceof ApiError && error.status === 410;
     if (is410) {
       return (
-        <div className="flex flex-1 flex-col items-center justify-center gap-4 p-8 text-center">
-          <AlertCircle size={48} className="text-outline" />
-          <h2 className="text-lg font-bold text-on-surface">
-            원본 파일이 사라진 세션이야
-          </h2>
-          <p className="max-w-sm text-sm text-on-surface-variant">
-            이 세션의 jsonl 원본이 <code className="font-mono text-xs">~/.claude/</code>
-            에서 사라졌어. overlay 에 메타만 남은 흔적이야. 정리할까?
-          </p>
-          <button
-            disabled={deleteSession.isPending}
-            onClick={() => {
-              if (!confirm("정말 지울까? 복원 불가능해.")) return;
-              deleteSession.mutate(sessionId, {
-                onSuccess: () => navigate({ to: "/sessions" }),
-              });
-            }}
-            className="rounded border border-error/40 bg-error/10 px-4 py-2 text-sm font-medium text-error transition-colors hover:bg-error/20 disabled:opacity-50"
-          >
-            {deleteSession.isPending ? "지우는 중…" : "흔적 지우기"}
-          </button>
-        </div>
+        <section
+          role="region"
+          aria-label="사라진 세션"
+          className="flex flex-1 flex-col bg-surface-container"
+        >
+          <header className="space-y-3 border-b border-outline-variant/30 p-6">
+            <span
+              role="status"
+              aria-live="polite"
+              className="inline-flex items-center gap-1 rounded-xs bg-error/10 px-1.5 py-0.5 font-mono text-2xs uppercase tracking-wider text-error"
+            >
+              <AlertCircle size={12} />
+              원본 없음
+            </span>
+            <div className="flex items-center gap-2">
+              <h2
+                className="font-mono text-md text-on-surface"
+                title={sessionId}
+              >
+                {sessionId}
+              </h2>
+              <button
+                onClick={handleCopyId}
+                className="text-outline transition-colors hover:text-primary focus-visible:text-primary focus-visible:outline-none"
+                title="ID 복사"
+              >
+                <Copy size={14} />
+              </button>
+            </div>
+            <p className="text-xs text-on-surface-variant">
+              overlay 메타만 남음 · 스캔 DB 에서만 흔적 확인 가능
+            </p>
+          </header>
+
+          <div className="flex-1 overflow-y-auto px-6 py-12">
+            <p className="mx-auto max-w-md text-md text-on-surface">
+              이 세션의 jsonl 원본이{" "}
+              <code className="font-mono text-sm text-on-surface-variant">
+                ~/.claude/
+              </code>
+              에서 사라졌습니다. overlay 에 메타만 남은 흔적입니다.
+            </p>
+            <div
+              id="delete-hint"
+              className="mx-auto mt-6 max-w-md rounded-sm border border-outline-variant/30 bg-surface-container-low p-4 text-xs text-on-surface-variant"
+            >
+              <div className="mb-2 font-mono text-2xs uppercase tracking-wider text-outline">
+                발생 원인
+              </div>
+              <ul className="list-disc space-y-1 pl-4 marker:text-outline">
+                <li>
+                  다른 도구로{" "}
+                  <code className="font-mono">~/.claude/</code> 를 직접 정리
+                </li>
+                <li>Claude Code 가 파일 이름을 바꿈</li>
+                <li>디스크 복구·이전 중 손실</li>
+              </ul>
+            </div>
+          </div>
+
+          <footer className="flex items-center justify-between border-t border-outline-variant/30 bg-surface-variant/70 p-4 backdrop-blur-md">
+            <button
+              onClick={() => navigate({ to: "/sessions" })}
+              className="flex items-center gap-2 rounded-sm px-3 py-2 text-sm text-on-surface-variant transition-colors hover:bg-surface-container-highest hover:text-on-surface focus-visible:bg-surface-container-highest focus-visible:outline-none"
+            >
+              <ArrowLeft size={16} />
+              세션 목록으로
+            </button>
+            <button
+              disabled={deleteSession.isPending}
+              aria-describedby="delete-hint"
+              onClick={() => {
+                if (!confirm("정말 삭제하시겠어요? 복원할 수 없습니다."))
+                  return;
+                deleteSession.mutate(sessionId, {
+                  onSuccess: () => navigate({ to: "/sessions" }),
+                });
+              }}
+              className="flex items-center gap-2 rounded-sm border border-error/40 bg-error/10 px-3 py-2 text-sm font-medium text-error transition-colors hover:bg-error/20 focus-visible:bg-error/20 focus-visible:outline-none disabled:opacity-50"
+            >
+              <Trash2 size={16} />
+              {deleteSession.isPending ? "지우는 중…" : "흔적 지우기"}
+            </button>
+          </footer>
+        </section>
       );
     }
     return (

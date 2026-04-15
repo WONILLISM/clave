@@ -84,7 +84,7 @@ function ArtifactsPage() {
       )}
       {data && data.items.length === 0 && (
         <div className="px-6 py-12 text-center text-on-surface-variant">
-          산출물이 없어.
+          산출물이 없습니다.
         </div>
       )}
       {data && data.items.length > 0 && (

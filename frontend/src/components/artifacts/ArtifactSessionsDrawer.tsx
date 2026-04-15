@@ -87,7 +87,7 @@ export function ArtifactSessionsDrawer({ path, onClose }: Props) {
           )}
           {data && data.length === 0 && (
             <div className="text-center text-sm text-on-surface-variant">
-              이 경로를 건드린 세션이 없어.
+              이 경로를 건드린 세션이 없습니다.
             </div>
           )}
           {data && data.length > 0 && (

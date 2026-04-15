@@ -193,7 +193,7 @@ function HousekeepingPage() {
       )}
       {data && filteredItems.length === 0 && (
         <div className="px-6 py-12 text-center text-on-surface-variant">
-          정리 후보가 없어.
+          정리 후보가 없습니다.
         </div>
       )}
       {data && filteredItems.length > 0 && (
