@@ -87,14 +87,14 @@ Workspace
 - ✅ **Unified Timeline** — Cowork+Code 세션을 한 줄로. 날짜·프로젝트·태그·디바이스 필터.
 - ✅ **Session Viewer** — 세션 선택하면 메시지·tool_use·산출물 파일 링크를 한 화면.
 - ✅ **Pin / Tag** — 세션에 태그·핀 부여. 저장소: `~/.clave/overlay.sqlite`.
-- **Note** — 세션에 메모 부여. (미구현)
-- **Artifact Tracker** — 정해진 경로들을 주기 스캔하여 산출물 카드화 + 출처 세션 역참조.
+- ✅ **Note** — 세션에 메모 부여 (W4).
+- ⚠️ **Artifact Tracker** — 1차 구현 완료(W4) 했으나 이벤트 로그 방식이라 signal < noise. 재설계 예정 (W4.5, §14 #9).
 
 ### P1 — Week 3 (지식화)
 
-- **Highlight → Knowledge** — 세션 특정 블록 드래그해서 "프롬프트/레시피/스니펫"으로 승격.
-- ✅ **Search** — Overlay + Knowledge 전역 검색 (SQLite FTS5).
-- **Recipe Suggester** — 현재 세션 cwd·파일 타입 보고 "이 작업엔 이 스킬 조합" 힌트.
+- ⚠️ **Highlight → Knowledge** — 축소판(Create/List/Delete) 만 W4. Knowledge 승격(Prompt/Recipe/Snippet) 은 W4.5 로 분리 (§14 #8).
+- ✅ **Search** — Overlay 전역 검색 (SQLite FTS5).
+- **Recipe Suggester** — 현재 세션 cwd·파일 타입 보고 "이 작업엔 이 스킬 조합" 힌트. (미착수)
 
 ### P2 — Week 4+ (운영 통제 + 정돈 + 나중 확장)
 
@@ -172,13 +172,13 @@ Workspace
 - ✅ **Dashboard** (홈) — 통계 카드 + 최근 세션 + 활성 프로젝트 + 태그 분포
 - ✅ **Sessions** (Timeline) — 모든 세션, 필터·검색·핀·태그
 - ✅ **Projects** — 프로젝트별 뷰
-- ✅ **Session Detail** — 메시지·tool_use 마크다운 렌더링
-- **Knowledge** — Prompts / Recipes / Snippets
-- **Artifacts** — 산출물 카탈로그
-- **Tasks** — 예약·진행 작업 통제
-- **Housekeeping 🧹** — `~/.claude/` 정리소. 탐지·격리·복원·유예
-- **Env** — 기존 대시보드의 에이전트·스킬·훅·플러그인·건강점수 (가끔만 보는 탭으로 이전)
-- **Settings** — overlay 위치, 스캔 경로, 동기화, 태그 사전, **Protected/Allow/Deny 경로**, 자동화 레벨(L0~L3)
+- ✅ **Session Detail** — 메시지·tool_use 마크다운 렌더링 + Notes + Artifacts + Highlights
+- ⚠️ **Artifacts** — 1차 목록 구현 (W4). path-grouped 재설계 예정 (W4.5)
+- **Knowledge** — Prompts / Recipes / Snippets (미착수, W4.5 에서 Highlight 승격으로 시드)
+- **Tasks** — 예약·진행 작업 통제 (미착수)
+- **Housekeeping 🧹** — `~/.claude/` 정리소. 탐지·격리·복원·유예 (미착수, W5)
+- **Env** — 기존 대시보드의 에이전트·스킬·훅·플러그인·건강점수 (가끔만 보는 탭으로 이전, W6)
+- **Settings** — overlay 위치, 스캔 경로, 동기화, 태그 사전, **Protected/Allow/Deny 경로**, 자동화 레벨(L0~L3) (미착수)
 
 ## 8. 기술 선택 (개인 MVP)
 
@@ -290,11 +290,11 @@ Workspace
 - **Zod** — TS 측 런타임 검증 필요할 때만. 우선은 OpenAPI→TS 타입만으로.
 - **Storybook** — 비용 대비 가치 낮음. 팀 배포 때.
 
-### 8.5 열어둘 선택 (착수 시 결정)
+### 8.5 열어둘 선택
 
-- **iCloud Drive vs Syncthing** — overlay.sqlite 동기화 수단. W5 디바이스 sync 검증 시 실측 후 결정.
-- **TanStack Router vs React Router v7** — W1 프론트 착수 시 hello-world 까진 동일. 부딪혀 보고 결정.
-- **openapi-typescript vs orval vs 수작성 DTO** — W2 에 API 표면 커지면 그때.
+- **iCloud Drive vs Syncthing** — overlay.sqlite 동기화 수단. W6 디바이스 sync 착수 시 실측 후 결정.
+
+(결정 완료: 라우터 → **TanStack Router**, API 클라이언트 → **openapi-typescript**)
 
 ### 8.6 디렉터리 구조 (제안)
 
@@ -337,17 +337,16 @@ Scanner (watchdog)
                        overlay.sqlite (knowledge)
 ```
 
-## 10. 이름 후보
+## 10. 이름
 
-"Claude 현황을 본다 + 내 작업이 축적된다" 느낌 후보:
+**Clave** /클라베/ · Claude + clavis(열쇠) · "Your key to Claude." (2026-04-13 확정, §14 #1)
 
-- **Klog** — Claude Log, 짧고 귀엽고 검색가능.
-- **Clave** — Claude + clavis(열쇠). 연결 고리 은유.
-- **Den** — 나만의 공간, 단어로 깔끔.
-- **AELIQ Hub** — 팀 배포 후 브랜딩 연장 쉬움.
-- **Lumen** — 불빛, 가시성 DNA 강조.
+<details>
+<summary>논의한 후보 (역사 기록)</summary>
 
-추천: **Klog** (개인용 MVP 네이밍) → 팀 배포 시 "AELIQ Klog" 로 네임스페이스.
+Klog (Claude Log), Den (나만의 공간), AELIQ Hub (팀 배포 브랜딩), Lumen (가시성 DNA) — 모두 탈락.
+
+</details>
 
 ## 11. 로드맵
 
@@ -357,7 +356,8 @@ Scanner (watchdog)
 | W1.5 | 프론트엔드 스캐폴드 + 공통 셸 | Vite+React+TanStack 기반 | ✅ 완료 |
 | W2 | Projects·Sessions·Session Detail 통합 | 세 화면 + 인터랙션 (Pin/Tag/Filter/Rescan) | ✅ 완료 |
 | W3 | 마크다운 렌더링 + Tool use + FTS5 검색 + 대시보드 홈 | 세션 뷰어 완성 + 검색 + 홈 | ✅ 완료 |
-| W4 | Note + Artifact 스캐너 + Highlight → Knowledge | 산출물 카드 + Knowledge 탭 | 🔜 다음 |
+| W4 | Note + Artifact 스캐너 + Highlight (축소판) | Note CRUD + Artifact 목록 + Highlight 선택·저장 | ✅ 완료 (Knowledge 승격은 다음 라운드) |
+| W4.5 | Artifact 재설계 (path 중심) + Highlight → Knowledge 승격 | `/artifacts` path-grouped + 세션 역참조 + Prompts/Recipes/Snippets | 🔜 다음 |
 | W5 | **Housekeeping 탐지 룰 + 격리/복원/유예 + Dry-run UI** | 🧹 탭 개인 사용 가능 | |
 | W6 | Scheduled task console + 디바이스 sync + Env 탭 이식 | 팀 배포 전 안정화 | |
 | W7+ | Team export, 템플릿 관리자, 권한 모델, AELIQ 정리 프리셋 | 팀 배포 베타 | |
@@ -371,11 +371,13 @@ Scanner (watchdog)
 - **Housekeeping 오판**: 실제론 중요한데 "미사용"으로 잡힐 위험 → Protected Paths + 30일 유예 + Journal 로 복원 보장. 기본 L0/L1, L3 은 UI에서 더블 확인.
 - **Trash 디스크 점유**: 격리함 자체가 비대해질 수 있음 → Trash 상단에 총 용량 + 자동 만료 카운트다운 표시.
 
-## 13. 레퍼런스 대시보드 재활용 전략
+## 13. 레퍼런스 대시보드 재활용 전략 (역사)
+
+> W1 시점 결정. 이제 참조용.
 
 - **즉시 재활용**: 한글 라벨 사전(에이전트 71 + 스킬 102), 다크 팔레트, 파싱 로직(settings/plugins/mcp)
-- **리팩터링 후 이식**: 하네스 건강 점수 계산식 → Env 탭으로 축소 이전
-- **버리는 것**: 미니파이 SPA 번들, read-only mock 엔드포인트
+- **리팩터링 후 이식**: 하네스 건강 점수 계산식 → Env 탭으로 축소 이전 (W6)
+- **버렸다**: 미니파이 SPA 번들, read-only mock 엔드포인트
 
 ## 14. 결정 내역
 
@@ -390,12 +392,14 @@ Scanner (watchdog)
 | 5 | 프론트엔드 출발점 | **Tailwind v4 + ark-ui 확정** | shadcn/ui 도입 안 함 — 고밀도·단일 사용자 툴 성격상 shadcn 기본 미학과 방향 불일치. 토큰은 `@theme` 에 정의, Stitch 로 화면 목업 생성 후 이식 (§8.1, §8.3) |
 | 6 | Housekeeping 기본 자동화 레벨 | **L0 (완전 수동)** | L1~L3 는 Settings opt-in (§6-bis) |
 | 7 | 팀 배포 시점 | **현 단계 고려 안 함** | §3 비목표로 명시. 개인 dogfooding 후 별도 라운드 |
+| 8 | W4 Highlight 범위 | **축소판 (Create/List/Delete 만)** | 2026-04-15. Knowledge 승격(Prompt/Recipe/Snippet) 은 분리 — 하이라이트 데이터 쌓인 뒤 패턴 보고 승격 UX 설계. `kind` 컬럼만 미리 두고 값은 `"insight"` 고정 |
+| 9 | Artifact 재설계 방향 | **A: path 중심 카탈로그 + 세션 역참조** | 2026-04-15. 현 이벤트 로그 방식은 signal < noise (같은 파일 Write/Edit 반복 → 중복 행, tool_use 카드와 정보 겹침, 파일→세션 역참조 불가). 다음 라운드에서 `/artifacts` 를 `1 path = 1 행` (수정 횟수 + 마지막 세션) 으로 재구성, 파일 행 클릭 시 세션들 drawer, 세션 상세의 ArtifactsPanel 은 제거 |
 
 ### 다음 라운드 (착수 전 확정 필요)
 
-- overlay·trash 경로 최종 (기본값 그대로 갈지 여부)
-- 라우터 선택 (TanStack Router vs React Router v7) — W1 hello-world 시점에
-- 디바이스 sync 수단 (iCloud Drive vs Syncthing) — W5 검증 후
+- 디바이스 sync 수단 (iCloud Drive vs Syncthing) — W6 착수 시 실측 후 결정
+
+(확정 완료: overlay·trash 경로 = `~/.clave/` 기본값 유지, 라우터 = TanStack Router)
 
 ### 미래 플랜: 팀 하네스 (Cowork + Box Drive)
 
