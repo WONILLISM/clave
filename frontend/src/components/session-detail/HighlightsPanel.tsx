@@ -25,7 +25,7 @@ export function HighlightsPanel({ highlights, onDelete, onJumpToMessage }: Props
       </button>
 
       {expanded && has && (
-        <ul className="mt-2 space-y-1.5">
+        <ul className="mt-2 max-h-60 space-y-1.5 overflow-y-auto">
           {highlights.map((h) => (
             <li
               key={h.highlight_id}

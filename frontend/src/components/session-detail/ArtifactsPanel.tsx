@@ -28,7 +28,7 @@ export function ArtifactsPanel({ artifacts }: Props) {
       </button>
 
       {expanded && has && (
-        <ul className="mt-2 space-y-1">
+        <ul className="mt-2 max-h-60 space-y-1 overflow-y-auto">
           {artifacts.map((a) => (
             <li
               key={a.artifact_id}

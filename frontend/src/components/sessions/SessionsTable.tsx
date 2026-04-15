@@ -24,7 +24,7 @@ export function SessionsTable({ sessions }: Props) {
     <table className="w-full border-collapse text-left">
       <thead className="sticky top-0 z-[5] bg-surface-dim">
         <tr className="h-8 border-b border-outline-variant">
-          <th className="w-10 pl-4 pr-2 font-mono text-2xs uppercase tracking-wider text-on-surface-variant">
+          <th className="w-10 whitespace-nowrap pl-4 pr-2 font-mono text-2xs uppercase tracking-wider text-on-surface-variant">
             상태
           </th>
           <th className="px-2 font-mono text-2xs uppercase tracking-wider text-on-surface-variant">
