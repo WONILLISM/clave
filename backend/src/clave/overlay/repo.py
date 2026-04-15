@@ -716,3 +716,37 @@ async def search_sessions(
         for r in rows
     ]
     return SearchResponse(items=items, query=query)
+
+
+async def delete_session(conn: aiosqlite.Connection, session_id: str) -> bool:
+    """overlay DB 에서 sessions 행 삭제. CASCADE 로 자식 테이블 자동 정리.
+
+    ~/.claude/ 는 절대 건드리지 않는다 — overlay only, ~/.claude/ untouched.
+
+    Returns:
+        True  — 행이 존재하여 삭제됨.
+        False — 해당 session_id 없음 (호출자가 404 반환 가능).
+    """
+    # FTS5 contentless index 도 함께 정리해야 한다.
+    cur = await conn.execute(
+        """
+        SELECT s.rowid, COALESCE(s.summary, ''), COALESCE(s.file_paths, ''),
+               COALESCE(pr.decoded_cwd, '')
+        FROM sessions s
+        JOIN projects pr ON pr.project_id = s.project_id
+        WHERE s.session_id = ?
+        """,
+        (session_id,),
+    )
+    fts_row = await cur.fetchone()
+    if fts_row is None:
+        return False
+
+    # FTS5 contentless delete — 원본 값 정확히 전달 필요.
+    await conn.execute(
+        "INSERT INTO sessions_fts(sessions_fts, rowid, summary, file_paths, decoded_cwd) "
+        "VALUES('delete', ?, ?, ?, ?)",
+        (fts_row[0], fts_row[1], fts_row[2], fts_row[3]),
+    )
+    await conn.execute("DELETE FROM sessions WHERE session_id = ?", (session_id,))
+    return True

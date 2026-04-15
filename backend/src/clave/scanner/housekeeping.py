@@ -18,7 +18,7 @@ import aiosqlite
 
 from clave.paths import cwd_exists
 
-CategoryLiteral = Literal["stale_session", "empty_project", "orphan_project"]
+CategoryLiteral = Literal["stale_session", "empty_project", "orphan_project", "orphan_session"]
 
 
 @dataclass
@@ -37,7 +37,11 @@ async def scan_candidates(
 ) -> list[Candidate]:
     """Collect all housekeeping candidates and return sorted list."""
     out: list[Candidate] = []
-    out += await _stale_sessions(conn, stale_days=stale_days)
+    # orphan_session 먼저 — 더 강한 신호. stale_session 에서 중복 제외.
+    orphan_results = await _orphan_sessions(conn)
+    orphan_ids: set[str] = {c.entity_id for c in orphan_results}
+    out += orphan_results
+    out += await _stale_sessions(conn, stale_days=stale_days, exclude_ids=orphan_ids)
     # projects/ 부재 가드 — bootstrap.py 패턴 차용
     projects_root = claude_home / "projects"
     if projects_root.is_dir():
@@ -48,11 +52,19 @@ async def scan_candidates(
     return out
 
 
-async def _stale_sessions(conn: aiosqlite.Connection, *, stale_days: int) -> list[Candidate]:
-    """pinned=False AND no tags AND last_message_at <= cutoff."""
+async def _stale_sessions(
+    conn: aiosqlite.Connection,
+    *,
+    stale_days: int,
+    exclude_ids: set[str] = set(),  # noqa: B006
+) -> list[Candidate]:
+    """pinned=False AND no tags AND last_message_at <= cutoff.
+
+    exclude_ids: orphan_session 으로 이미 잡힌 session_id — 중복 제외.
+    """
     cutoff = (datetime.now(UTC) - timedelta(days=stale_days)).isoformat(timespec="seconds")
     # overlay/repo.py list_sessions 필터 패턴 차용 — pins LEFT JOIN + session_tags NOT EXISTS
-    sql = """
+    base_sql = """
         SELECT s.session_id, s.summary, s.last_message_at, s.file_size
         FROM sessions s
         LEFT JOIN pins p ON p.session_id = s.session_id
@@ -61,9 +73,15 @@ async def _stale_sessions(conn: aiosqlite.Connection, *, stale_days: int) -> lis
           AND NOT EXISTS (
             SELECT 1 FROM session_tags st WHERE st.session_id = s.session_id
           )
-        ORDER BY s.last_message_at ASC
     """
-    cur = await conn.execute(sql, (cutoff,))
+    params: list[object] = [cutoff]
+    if exclude_ids:
+        placeholders = ",".join("?" * len(exclude_ids))
+        base_sql += f"\n          AND s.session_id NOT IN ({placeholders})"
+        params.extend(exclude_ids)
+    base_sql += "\n        ORDER BY s.last_message_at ASC"
+
+    cur = await conn.execute(base_sql, params)
     rows = await cur.fetchall()
     return [
         Candidate(
@@ -77,6 +95,43 @@ async def _stale_sessions(conn: aiosqlite.Connection, *, stale_days: int) -> lis
         )
         for r in rows
     ]
+
+
+async def _orphan_sessions(conn: aiosqlite.Connection) -> list[Candidate]:
+    """jsonl_path 가 실제 파일시스템에 없는 세션 탐지.
+
+    핀/태그가 있으면 제외 (stale_session 과 동일 필터).
+    size_bytes 는 None — 원본 파일 없으므로 측정 불가.
+    """
+    sql = """
+        SELECT s.session_id, s.summary, s.last_message_at, s.jsonl_path
+        FROM sessions s
+        LEFT JOIN pins p ON p.session_id = s.session_id
+        WHERE p.session_id IS NULL
+          AND NOT EXISTS (
+            SELECT 1 FROM session_tags st WHERE st.session_id = s.session_id
+          )
+        ORDER BY s.last_message_at ASC
+    """
+    cur = await conn.execute(sql)
+    rows = await cur.fetchall()
+
+    candidates: list[Candidate] = []
+    for r in rows:
+        if Path(r["jsonl_path"]).is_file():
+            continue
+        candidates.append(
+            Candidate(
+                category="orphan_session",
+                entity_id=r["session_id"],
+                display_name=r["summary"] or r["session_id"][:8],
+                reason="원본 jsonl 파일 사라짐",
+                size_bytes=None,
+                last_activity=r["last_message_at"],
+                metadata={"jsonl_path": r["jsonl_path"]},
+            )
+        )
+    return candidates
 
 
 async def _empty_projects(conn: aiosqlite.Connection, projects_root: Path) -> list[Candidate]:

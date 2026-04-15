@@ -173,7 +173,7 @@ class ArtifactSessionRef(BaseModel):
 
 # ---------- Housekeeping ----------
 
-HousekeepingCategory = Literal["stale_session", "empty_project", "orphan_project"]
+HousekeepingCategory = Literal["stale_session", "empty_project", "orphan_project", "orphan_session"]
 
 
 class HousekeepingCandidateItem(BaseModel):
@@ -191,7 +191,7 @@ class HousekeepingScanResponse(BaseModel):
     scanned_at: str
     summary: dict[
         HousekeepingCategory, int
-    ]  # {"stale_session": 5, "empty_project": 1, "orphan_project": 2}
+    ]  # {"stale_session": 5, "empty_project": 1, "orphan_project": 2, "orphan_session": 3}
     total_size_bytes: int  # 전체 후보 크기 합 (UI 배너용)
 
 

@@ -3,7 +3,7 @@ from __future__ import annotations
 from pathlib import Path
 
 import aiosqlite
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query, Response
 
 from clave.api import get_db
 from clave.models import SessionDetailResponse, SessionListResponse
@@ -75,3 +75,16 @@ async def get_session_endpoint(
         has_more=has_more,
         next_offset=offset + consumed if has_more else offset + consumed,
     )
+
+
+@router.delete("/sessions/{session_id}", status_code=204)
+async def delete_session_endpoint(
+    session_id: str,
+    db: aiosqlite.Connection = Depends(get_db),
+) -> Response:
+    """overlay DB 의 세션 흔적만 삭제. ~/.claude/ 는 절대 건드리지 않는다."""
+    deleted = await repo.delete_session(db, session_id)
+    if not deleted:
+        raise HTTPException(status_code=404, detail="session not found")
+    await db.commit()
+    return Response(status_code=204)

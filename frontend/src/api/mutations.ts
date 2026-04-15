@@ -161,6 +161,19 @@ export function useDeleteHighlight() {
   });
 }
 
+// ── Session delete ──────────────────────────────────────────
+export function useDeleteSession() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (sessionId: string) =>
+      api<void>(`/api/sessions/${sessionId}`, { method: "DELETE" }),
+    onSuccess: (_data, sessionId) => {
+      qc.invalidateQueries({ queryKey: ["sessions"] });
+      qc.invalidateQueries({ queryKey: ["session", sessionId] });
+    },
+  });
+}
+
 // ── Rescan ──────────────────────────────────────────────────
 export function useRescan() {
   const qc = useQueryClient();

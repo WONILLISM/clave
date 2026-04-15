@@ -8,6 +8,7 @@ import {
   PinOff,
   Tag,
   X,
+  AlertCircle,
 } from "lucide-react";
 import {
   useSession,
@@ -26,7 +27,9 @@ import {
   useDeleteNote,
   useCreateHighlight,
   useDeleteHighlight,
+  useDeleteSession,
 } from "~/api/mutations";
+import { ApiError } from "~/api/client";
 import { shortenPath } from "~/lib/format";
 import { SessionHistoryPane } from "~/components/session-detail/SessionHistoryPane";
 import { SessionStream } from "~/components/session-detail/SessionStream";
@@ -66,6 +69,7 @@ function SessionDetailPage() {
   const deleteNote = useDeleteNote();
   const createHighlight = useCreateHighlight();
   const deleteHighlight = useDeleteHighlight();
+  const deleteSession = useDeleteSession();
 
   const streamRef = useRef<HTMLDivElement | null>(null);
 
@@ -117,6 +121,33 @@ function SessionDetailPage() {
   }
 
   if (error) {
+    const is410 = error instanceof ApiError && error.status === 410;
+    if (is410) {
+      return (
+        <div className="flex flex-1 flex-col items-center justify-center gap-4 p-8 text-center">
+          <AlertCircle size={48} className="text-outline" />
+          <h2 className="text-lg font-bold text-on-surface">
+            원본 파일이 사라진 세션이야
+          </h2>
+          <p className="max-w-sm text-sm text-on-surface-variant">
+            이 세션의 jsonl 원본이 <code className="font-mono text-xs">~/.claude/</code>
+            에서 사라졌어. overlay 에 메타만 남은 흔적이야. 정리할까?
+          </p>
+          <button
+            disabled={deleteSession.isPending}
+            onClick={() => {
+              if (!confirm("정말 지울까? 복원 불가능해.")) return;
+              deleteSession.mutate(sessionId, {
+                onSuccess: () => navigate({ to: "/sessions" }),
+              });
+            }}
+            className="rounded border border-error/40 bg-error/10 px-4 py-2 text-sm font-medium text-error transition-colors hover:bg-error/20 disabled:opacity-50"
+          >
+            {deleteSession.isPending ? "지우는 중…" : "흔적 지우기"}
+          </button>
+        </div>
+      );
+    }
     return (
       <div className="flex flex-1 items-center justify-center text-error">
         {String(error)}

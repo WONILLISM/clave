@@ -313,9 +313,11 @@ async def test_no_projects_dir(tmp_path: Path) -> None:
     conn = await open_db(overlay_db)
     await migrate(conn)
 
-    # stale 세션 직접 INSERT
+    # stale 세션 직접 INSERT — jsonl 파일은 실제로 생성해야 orphan_session 으로 오탐 안 됨
     now = datetime.now(UTC)
     stale_ts = (now - timedelta(days=100)).isoformat(timespec="seconds")
+    fake_jsonl = tmp_path / "s-nodir.jsonl"
+    fake_jsonl.write_text("{}\n")
     await conn.execute(
         """INSERT INTO projects(project_id, decoded_cwd, cwd_exists, first_seen_at, last_active_at, session_count, indexed_at)
            VALUES (?, ?, ?, ?, ?, ?, ?)""",
@@ -329,7 +331,7 @@ async def test_no_projects_dir(tmp_path: Path) -> None:
         (
             "s-nodir",
             "-tmp-no-dir",
-            "/fake.jsonl",
+            str(fake_jsonl),
             stale_ts,
             stale_ts,
             1,
@@ -481,3 +483,137 @@ def test_days_since_invalid_returns_minus_one() -> None:
     assert _days_since("not-a-date") == -1
     assert _days_since("") == -1
     assert _days_since("2026/04/15") == -1
+
+
+# ---------- 13. orphan_session 탐지 ----------
+
+
+async def _seed_session(
+    conn: aiosqlite.Connection,
+    session_id: str,
+    jsonl_path: str,
+    days_ago: int = 10,
+) -> None:
+    """sessions + projects 에 최소한의 행을 직접 INSERT."""
+    proj_id = f"-proj-{session_id}"
+    ts = (datetime.now(UTC) - timedelta(days=days_ago)).isoformat(timespec="seconds")
+    await conn.execute(
+        """INSERT OR IGNORE INTO projects
+           (project_id, decoded_cwd, cwd_exists, first_seen_at, last_active_at, session_count, indexed_at)
+           VALUES (?, ?, ?, ?, ?, ?, ?)""",
+        (proj_id, f"/fake/{session_id}", 0, ts, ts, 1, ts),
+    )
+    await conn.execute(
+        """INSERT INTO sessions
+           (session_id, project_id, jsonl_path, started_at, last_message_at,
+            message_count, user_message_count, assistant_message_count,
+            tool_use_count, subagent_count, file_size, file_mtime, indexed_at)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+        (session_id, proj_id, jsonl_path, ts, ts, 1, 1, 0, 0, 0, 100, ts, ts),
+    )
+    await conn.commit()
+
+
+async def test_detect_orphan_session(tmp_path: Path) -> None:
+    """jsonl_path 가 fs 에 없는 세션 → orphan_session 후보. category/reason 검증."""
+    claude_home = tmp_path / "claude"
+    claude_home.mkdir(parents=True, exist_ok=True)
+
+    conn = await open_db(tmp_path / "orphan.sqlite")
+    await migrate(conn)
+    await _seed_session(conn, "s-orphan", "/nonexistent/path/session.jsonl")
+
+    cands = await scan_candidates(conn, claude_home, stale_days=90)
+    orphan = [c for c in cands if c.category == "orphan_session"]
+    ids = {c.entity_id for c in orphan}
+    assert "s-orphan" in ids
+
+    cand = next(c for c in orphan if c.entity_id == "s-orphan")
+    assert "jsonl" in cand.reason.lower() or "사라짐" in cand.reason
+    assert cand.metadata.get("jsonl_path") == "/nonexistent/path/session.jsonl"
+    await conn.close()
+
+
+async def test_orphan_session_pinned_excluded(tmp_path: Path) -> None:
+    """orphan 후보지만 pin 있으면 orphan_session 에서 제외."""
+    claude_home = tmp_path / "claude"
+    claude_home.mkdir(parents=True, exist_ok=True)
+
+    conn = await open_db(tmp_path / "orphan-pin.sqlite")
+    await migrate(conn)
+    await _seed_session(conn, "s-orphan-pin", "/gone/session.jsonl")
+
+    await conn.execute(
+        "INSERT INTO pins(session_id, pinned_at) VALUES (?, ?)",
+        ("s-orphan-pin", datetime.now(UTC).isoformat(timespec="seconds")),
+    )
+    await conn.commit()
+
+    cands = await scan_candidates(conn, claude_home, stale_days=90)
+    orphan_ids = {c.entity_id for c in cands if c.category == "orphan_session"}
+    assert "s-orphan-pin" not in orphan_ids
+    await conn.close()
+
+
+async def test_orphan_session_tagged_excluded(tmp_path: Path) -> None:
+    """orphan 후보지만 태그 있으면 orphan_session 에서 제외."""
+    claude_home = tmp_path / "claude"
+    claude_home.mkdir(parents=True, exist_ok=True)
+
+    conn = await open_db(tmp_path / "orphan-tag.sqlite")
+    await migrate(conn)
+    await _seed_session(conn, "s-orphan-tag", "/gone/session.jsonl")
+
+    await conn.execute(
+        "INSERT INTO tags(name, color, created_at) VALUES (?, ?, ?)",
+        ("keep", None, datetime.now(UTC).isoformat(timespec="seconds")),
+    )
+    cur = await conn.execute("SELECT tag_id FROM tags WHERE name='keep'")
+    tag_id = (await cur.fetchone())["tag_id"]
+    await conn.execute(
+        "INSERT INTO session_tags(session_id, tag_id, tagged_at) VALUES (?, ?, ?)",
+        ("s-orphan-tag", tag_id, datetime.now(UTC).isoformat(timespec="seconds")),
+    )
+    await conn.commit()
+
+    cands = await scan_candidates(conn, claude_home, stale_days=90)
+    orphan_ids = {c.entity_id for c in cands if c.category == "orphan_session"}
+    assert "s-orphan-tag" not in orphan_ids
+    await conn.close()
+
+
+async def test_orphan_takes_precedence_over_stale(tmp_path: Path) -> None:
+    """90일+ 전 타임스탬프 + jsonl 없음 → orphan_session 으로만. stale_session 에는 안 나옴."""
+    claude_home = tmp_path / "claude"
+    claude_home.mkdir(parents=True, exist_ok=True)
+
+    conn = await open_db(tmp_path / "orphan-stale.sqlite")
+    await migrate(conn)
+    # 100일 전 + jsonl 없음 → stale 기준도 충족하지만 orphan 이 우선
+    await _seed_session(conn, "s-both", "/gone/old-session.jsonl", days_ago=100)
+
+    cands = await scan_candidates(conn, claude_home, stale_days=90)
+    orphan_ids = {c.entity_id for c in cands if c.category == "orphan_session"}
+    stale_ids = {c.entity_id for c in cands if c.category == "stale_session"}
+
+    assert "s-both" in orphan_ids, "orphan_session 으로 잡혀야 함"
+    assert "s-both" not in stale_ids, "exclude_ids 로 stale_session 에서 제외돼야 함"
+    await conn.close()
+
+
+async def test_real_jsonl_not_orphan(tmp_path: Path) -> None:
+    """실제 jsonl 파일이 tmp_path 에 있으면 orphan_session 후보 아님."""
+    claude_home = tmp_path / "claude"
+    claude_home.mkdir(parents=True, exist_ok=True)
+
+    real_jsonl = tmp_path / "real-session.jsonl"
+    real_jsonl.write_text('{"type":"user"}\n')
+
+    conn = await open_db(tmp_path / "orphan-real.sqlite")
+    await migrate(conn)
+    await _seed_session(conn, "s-real", str(real_jsonl))
+
+    cands = await scan_candidates(conn, claude_home, stale_days=90)
+    orphan_ids = {c.entity_id for c in cands if c.category == "orphan_session"}
+    assert "s-real" not in orphan_ids
+    await conn.close()
