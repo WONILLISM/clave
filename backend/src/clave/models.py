@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from typing import Any, Literal
+
 from pydantic import BaseModel, Field
 
 # ---------- Domain rows (DB-shaped) ----------
@@ -167,6 +169,30 @@ class ArtifactSessionRef(BaseModel):
     message_uuid: str | None = None  # 이 세션에서 마지막 tool_use 의 uuid
     created_at: str  # 이 세션에서의 가장 최근 수정 시각 (MAX)
     edit_count: int  # 이 세션 내 해당 path 수정 횟수
+
+
+# ---------- Housekeeping ----------
+
+HousekeepingCategory = Literal["stale_session", "empty_project", "orphan_project"]
+
+
+class HousekeepingCandidateItem(BaseModel):
+    category: HousekeepingCategory  # OpenAPI enum 으로 생성 → 프론트 타입 분기 안전
+    entity_id: str
+    display_name: str
+    reason: str
+    size_bytes: int | None = None
+    last_activity: str | None = None
+    metadata: dict[str, Any] = Field(default_factory=dict)
+
+
+class HousekeepingScanResponse(BaseModel):
+    items: list[HousekeepingCandidateItem]
+    scanned_at: str
+    summary: dict[
+        HousekeepingCategory, int
+    ]  # {"stale_session": 5, "empty_project": 1, "orphan_project": 2}
+    total_size_bytes: int  # 전체 후보 크기 합 (UI 배너용)
 
 
 class RescanRequest(BaseModel):

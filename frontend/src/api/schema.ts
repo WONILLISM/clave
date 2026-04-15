@@ -284,6 +284,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/housekeeping/scan": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Scan Endpoint */
+        get: operations["scan_endpoint_api_housekeeping_scan_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -399,6 +416,41 @@ export interface components {
             kind: string;
             /** Created At */
             created_at: string;
+        };
+        /** HousekeepingCandidateItem */
+        HousekeepingCandidateItem: {
+            /**
+             * Category
+             * @enum {string}
+             */
+            category: "stale_session" | "empty_project" | "orphan_project";
+            /** Entity Id */
+            entity_id: string;
+            /** Display Name */
+            display_name: string;
+            /** Reason */
+            reason: string;
+            /** Size Bytes */
+            size_bytes?: number | null;
+            /** Last Activity */
+            last_activity?: string | null;
+            /** Metadata */
+            metadata?: {
+                [key: string]: unknown;
+            };
+        };
+        /** HousekeepingScanResponse */
+        HousekeepingScanResponse: {
+            /** Items */
+            items: components["schemas"]["HousekeepingCandidateItem"][];
+            /** Scanned At */
+            scanned_at: string;
+            /** Summary */
+            summary: {
+                [key: string]: number;
+            };
+            /** Total Size Bytes */
+            total_size_bytes: number;
         };
         /**
          * MessageItem
@@ -1222,6 +1274,37 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["SearchResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    scan_endpoint_api_housekeeping_scan_get: {
+        parameters: {
+            query?: {
+                stale_days?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HousekeepingScanResponse"];
                 };
             };
             /** @description Validation Error */

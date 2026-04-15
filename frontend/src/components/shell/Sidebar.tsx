@@ -7,11 +7,12 @@ import {
   Package,
   BookOpen,
   CheckCircle2,
+  Sparkles,
   Trash2,
 } from "lucide-react";
 import { useHealth } from "~/api/queries";
 
-type NavTo = "/" | "/sessions" | "/projects" | "/artifacts";
+type NavTo = "/" | "/sessions" | "/projects" | "/artifacts" | "/housekeeping";
 
 type NavItem =
   | { to: NavTo; label: string; icon: LucideIcon; disabled?: false }
@@ -22,6 +23,7 @@ const navItems: NavItem[] = [
   { to: "/sessions", label: "세션", icon: Terminal },
   { to: "/projects", label: "프로젝트", icon: FolderOpen },
   { to: "/artifacts", label: "산출물", icon: Package },
+  { to: "/housekeeping", label: "정리소", icon: Sparkles },
   { to: "#", label: "지식", icon: BookOpen, disabled: true },
   { to: "#", label: "작업", icon: CheckCircle2, disabled: true },
 ];

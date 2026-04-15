@@ -26,3 +26,16 @@ export function baseName(cwd: string): string {
 export function shortenPath(path: string): string {
   return path.replace(/^\/Users\/[^/]+/, "~");
 }
+
+/** 바이트 수 → 사람이 읽기 좋은 단위 문자열. null/undefined 이면 "—" 반환. */
+export function formatBytes(n: number | null | undefined): string {
+  if (n == null) return "—";
+  const units = ["B", "KB", "MB", "GB"];
+  let i = 0;
+  let v = n;
+  while (v >= 1024 && i < units.length - 1) {
+    v /= 1024;
+    i++;
+  }
+  return `${v.toFixed(v >= 10 || i === 0 ? 0 : 1)} ${units[i]}`;
+}

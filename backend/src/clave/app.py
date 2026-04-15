@@ -8,7 +8,7 @@ from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
 
-from clave.api import admin, overlay, projects, search, sessions
+from clave.api import admin, housekeeping, overlay, projects, search, sessions
 from clave.config import Settings, load_settings
 from clave.logging_setup import setup_logging
 from clave.overlay.db import open_db
@@ -52,6 +52,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app.include_router(sessions.router)
     app.include_router(overlay.router)
     app.include_router(search.router)
+    app.include_router(housekeeping.router)
     return app
 
 

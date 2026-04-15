@@ -28,6 +28,11 @@ export type ArtifactSessionRef = components["schemas"]["ArtifactSessionRef"];
 
 export type HighlightRow = components["schemas"]["HighlightRow"];
 
+export type HousekeepingCandidateItem =
+  components["schemas"]["HousekeepingCandidateItem"];
+export type HousekeepingScanResponse =
+  components["schemas"]["HousekeepingScanResponse"];
+
 // 검색 응답 (schema.ts 재생성 전이므로 인라인 정의)
 export interface SearchResponse {
   items: SessionListItem[];
@@ -132,6 +137,20 @@ export function useArtifactSessions(path: string | null) {
         `/api/artifacts/sessions?path=${encodeURIComponent(path!)}`,
       ),
     enabled: !!path,
+  });
+}
+
+// ── Housekeeping ────────────────────────────────────────────
+export function useHousekeepingScan(params?: { staleDays?: number }) {
+  const qs = new URLSearchParams();
+  if (params?.staleDays != null) qs.set("stale_days", String(params.staleDays));
+  const s = qs.toString();
+  return useQuery({
+    queryKey: ["housekeeping-scan", params ?? {}],
+    queryFn: () =>
+      api<HousekeepingScanResponse>(
+        `/api/housekeeping/scan${s ? `?${s}` : ""}`,
+      ),
   });
 }
 
