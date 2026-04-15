@@ -3,6 +3,7 @@
 #   ./start.sh         백엔드만 (FastAPI on 127.0.0.1:8765)
 #   ./start.sh dev     백엔드 + 프론트 (Vite on 5173, /api 프록시)
 #   ./start.sh status  현재 떠 있는 백엔드/프론트 확인 (pid + health)
+#   ./start.sh stop    백엔드(8765) + 프론트(5173) 둘 다 종료 (TERM → KILL)
 set -euo pipefail
 cd "$(dirname "$0")"
 
@@ -48,6 +49,30 @@ report_port() {
   printf "\n"
 }
 
+# 포트 종료: SIGTERM → 최대 3초 대기 → 남아있으면 SIGKILL. 결과 한 줄 출력.
+stop_port() {
+  local label="$1" port="$2" pids
+  pids=$(lsof -ti ":${port}" 2>/dev/null || true)
+  if [ -z "$pids" ]; then
+    printf "  %-8s :%s  %salready down%s\n" "$label" "$port" "$C_DIM" "$C_RST"
+    return
+  fi
+  # shellcheck disable=SC2086
+  kill $pids 2>/dev/null || true
+  for _ in $(seq 1 15); do
+    sleep 0.2
+    lsof -ti ":${port}" >/dev/null 2>&1 || break
+  done
+  if lsof -ti ":${port}" >/dev/null 2>&1; then
+    pids=$(lsof -ti ":${port}" 2>/dev/null || true)
+    # shellcheck disable=SC2086
+    kill -9 $pids 2>/dev/null || true
+    printf "  %-8s :%s  %sstopped (SIGKILL)%s\n" "$label" "$port" "$C_ERR" "$C_RST"
+  else
+    printf "  %-8s :%s  %sstopped%s\n" "$label" "$port" "$C_OK" "$C_RST"
+  fi
+}
+
 case "$mode" in
   backend)
     cd backend
@@ -56,6 +81,11 @@ case "$mode" in
   status)
     report_port backend  8765 /api/health
     report_port frontend 5173
+    exit 0
+    ;;
+  stop)
+    stop_port backend  8765
+    stop_port frontend 5173
     exit 0
     ;;
   dev)
@@ -83,7 +113,7 @@ case "$mode" in
     exec bun --bun vite
     ;;
   *)
-    echo "usage: $0 [backend|dev|status]" >&2
+    echo "usage: $0 [backend|dev|status|stop]" >&2
     exit 1
     ;;
 esac
