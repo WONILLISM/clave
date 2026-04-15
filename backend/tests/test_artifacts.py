@@ -1,7 +1,7 @@
-"""Artifact 스캐너 통합 테스트.
+"""Artifact 스캐너 + path-grouped 카탈로그 통합 테스트.
 
-conftest 의 fake tree 는 Read/queue 만 사용하므로 artifact 가 0 이라 별도 fake 를 만든다.
-aggregator → bootstrap → repo → API 전 구간 통과를 한 번에 확인.
+aggregator → bootstrap → repo 전 구간. ArtifactsPanel·이벤트 로그 엔드포인트를
+W4.5-A 에서 제거하면서 repo API 가 path 중심으로 재설계됨.
 """
 
 from __future__ import annotations
@@ -29,25 +29,27 @@ def _write_jsonl(path: Path, records: list[dict]) -> None:
 
 @pytest.fixture
 def artifact_claude_home(tmp_path: Path) -> Path:
-    """Write/Edit/Read 가 섞인 한 세션짜리 fake tree."""
+    """두 세션이 같은 파일(a.md)과 서로 다른 파일(b.md)을 다양한 tool 로 건드리는 fake tree."""
     claude_home = tmp_path / "claude"
     proj = claude_home / "projects" / "-tmp-proj-art"
+
+    # 세션 1: a.md 를 Write + Edit. Read 는 인덱싱 제외 대상.
     _write_jsonl(
-        proj / "session-art.jsonl",
+        proj / "session-one.jsonl",
         [
             {
                 "type": "user",
                 "uuid": "u1",
                 "timestamp": "2026-04-15T10:00:00.000Z",
-                "sessionId": "session-art",
+                "sessionId": "session-one",
                 "cwd": "/tmp/proj-art",
-                "message": {"role": "user", "content": "do stuff"},
+                "message": {"role": "user", "content": "first"},
             },
             {
                 "type": "assistant",
                 "uuid": "a1",
                 "timestamp": "2026-04-15T10:00:05.000Z",
-                "sessionId": "session-art",
+                "sessionId": "session-one",
                 "message": {
                     "role": "assistant",
                     "content": [
@@ -70,7 +72,7 @@ def artifact_claude_home(tmp_path: Path) -> Path:
                 "type": "assistant",
                 "uuid": "a2",
                 "timestamp": "2026-04-15T10:00:10.000Z",
-                "sessionId": "session-art",
+                "sessionId": "session-one",
                 "message": {
                     "role": "assistant",
                     "content": [
@@ -83,6 +85,47 @@ def artifact_claude_home(tmp_path: Path) -> Path:
                                 "old_string": "x",
                                 "new_string": "y",
                             },
+                        },
+                    ],
+                },
+            },
+        ],
+    )
+
+    # 세션 2: 같은 a.md 를 MultiEdit 로 다시 건드림 + 별도 파일 b.md Write. 더 늦은 시각.
+    _write_jsonl(
+        proj / "session-two.jsonl",
+        [
+            {
+                "type": "user",
+                "uuid": "u3",
+                "timestamp": "2026-04-15T11:00:00.000Z",
+                "sessionId": "session-two",
+                "cwd": "/tmp/proj-art",
+                "message": {"role": "user", "content": "second"},
+            },
+            {
+                "type": "assistant",
+                "uuid": "a3",
+                "timestamp": "2026-04-15T11:00:05.000Z",
+                "sessionId": "session-two",
+                "message": {
+                    "role": "assistant",
+                    "content": [
+                        {
+                            "type": "tool_use",
+                            "id": "t4",
+                            "name": "MultiEdit",
+                            "input": {
+                                "file_path": "/tmp/art/a.md",
+                                "edits": [],
+                            },
+                        },
+                        {
+                            "type": "tool_use",
+                            "id": "t5",
+                            "name": "Write",
+                            "input": {"file_path": "/tmp/art/b.md", "content": "z"},
                         },
                     ],
                 },
@@ -115,63 +158,156 @@ async def artifact_db(artifact_settings: Settings):
         await conn.close()
 
 
-async def test_bootstrap_inserts_artifacts(
+# ---------- Scanner: 이벤트 로그가 DB 에 제대로 쌓이는지 (raw SQL 확인) ----------
+
+
+async def test_bootstrap_inserts_artifact_events(
     artifact_db: aiosqlite.Connection, artifact_settings: Settings
 ) -> None:
-    """Write/Edit 로 만든 파일 2건이 artifact 로 인덱싱되고 Read 는 제외되는지."""
+    """Write/Edit/MultiEdit 이벤트는 그대로 행으로 인덱싱, Read 는 제외.
+
+    a.md 는 session-one 에서 2건(Write, Edit) + session-two 에서 1건(MultiEdit) = 3건.
+    b.md 는 session-two 에서 1건(Write).
+    """
     await run_full_scan(artifact_db, artifact_settings.paths.claude_home)
 
-    rows = await repo.list_artifacts_for_session(artifact_db, "session-art")
-    # a.md 를 Write 1번 + Edit 1번 = 2행. /tmp/art/ref.md 의 Read 는 제외.
-    assert len(rows) == 2
-    tools = sorted(r.tool_name for r in rows)
-    assert tools == ["Edit", "Write"]
-    assert all(r.path == "/tmp/art/a.md" for r in rows)
-    # message_uuid 가 tool_use 가 속한 assistant message uuid 로 채워짐
-    assert {r.message_uuid for r in rows} == {"a1", "a2"}
-    # created_at 은 message timestamp
-    assert sorted(r.created_at for r in rows) == [
-        "2026-04-15T10:00:05.000Z",
-        "2026-04-15T10:00:10.000Z",
+    cur = await artifact_db.execute(
+        "SELECT path, tool_name, session_id FROM artifacts ORDER BY created_at ASC"
+    )
+    rows = await cur.fetchall()
+    assert len(rows) == 4
+    assert [(r["path"], r["tool_name"]) for r in rows] == [
+        ("/tmp/art/a.md", "Write"),
+        ("/tmp/art/a.md", "Edit"),
+        ("/tmp/art/a.md", "MultiEdit"),
+        ("/tmp/art/b.md", "Write"),
     ]
 
 
 async def test_rescan_is_idempotent(
     artifact_db: aiosqlite.Connection, artifact_settings: Settings
 ) -> None:
-    """같은 jsonl 로 재스캔해도 artifact 행은 2개로 유지 (delete-then-insert)."""
+    """같은 jsonl 재스캔해도 행 수는 동일 (delete-then-insert)."""
     await run_full_scan(artifact_db, artifact_settings.paths.claude_home)
-    first = await repo.list_artifacts_for_session(artifact_db, "session-art")
+    cur = await artifact_db.execute("SELECT COUNT(*) AS c FROM artifacts")
+    before = (await cur.fetchone())["c"]
 
     # signature 무효화해서 강제 재파싱
     await artifact_db.execute("UPDATE sessions SET file_size = -1")
     await artifact_db.commit()
 
     await run_full_scan(artifact_db, artifact_settings.paths.claude_home)
-    second = await repo.list_artifacts_for_session(artifact_db, "session-art")
+    cur = await artifact_db.execute("SELECT COUNT(*) AS c FROM artifacts")
+    after = (await cur.fetchone())["c"]
 
-    assert len(first) == len(second) == 2
+    assert before == after == 4
 
 
-async def test_list_all_artifacts_joins_session_summary(
+# ---------- list_artifact_paths: 1 path = 1 행 카탈로그 ----------
+
+
+async def test_list_paths_groups_by_path(
+    artifact_db: aiosqlite.Connection, artifact_settings: Settings
+) -> None:
+    """같은 path 를 여러 세션이 여러 번 건드려도 1행. edit_count·session_count 집계 검증."""
+    await run_full_scan(artifact_db, artifact_settings.paths.claude_home)
+
+    items = await repo.list_artifact_paths(artifact_db, limit=10)
+    assert len(items) == 2  # a.md, b.md
+
+    a = next(i for i in items if i.path == "/tmp/art/a.md")
+    assert a.edit_count == 3
+    assert a.session_count == 2
+    # GROUP_CONCAT(DISTINCT) 의 결과는 정렬되어야 함 (repo 에서 sorted 적용)
+    assert a.tools == ["Edit", "MultiEdit", "Write"]
+    # 마지막 수정은 session-two (더 늦은 시각)
+    assert a.last_session_id == "session-two"
+    assert a.last_session_summary == "second"
+
+    b = next(i for i in items if i.path == "/tmp/art/b.md")
+    assert b.edit_count == 1
+    assert b.session_count == 1
+    assert b.tools == ["Write"]
+    assert b.last_session_id == "session-two"
+
+
+async def test_list_paths_last_modified_desc(
+    artifact_db: aiosqlite.Connection, artifact_settings: Settings
+) -> None:
+    """최근 수정순 DESC 정렬. a.md, b.md 모두 session-two 에서 마지막 수정됐지만,
+    b.md 는 session-two 안에서 a.md MultiEdit 와 같은 메시지라 created_at 동일."""
+    await run_full_scan(artifact_db, artifact_settings.paths.claude_home)
+
+    items = await repo.list_artifact_paths(artifact_db, limit=10)
+    timestamps = [i.last_modified for i in items]
+    assert timestamps == sorted(timestamps, reverse=True)
+
+
+async def test_list_paths_search(
     artifact_db: aiosqlite.Connection, artifact_settings: Settings
 ) -> None:
     await run_full_scan(artifact_db, artifact_settings.paths.claude_home)
 
-    items = await repo.list_all_artifacts(artifact_db, limit=10)
-    assert len(items) == 2
-    # summary = 첫 user 메시지 "do stuff"
-    assert items[0].session_summary == "do stuff"
-    assert items[0].session_decoded_cwd == "/tmp/proj-art"
+    items = await repo.list_artifact_paths(artifact_db, path_contains="b.md")
+    assert len(items) == 1
+    assert items[0].path == "/tmp/art/b.md"
 
 
-async def test_tool_filter(artifact_db: aiosqlite.Connection, artifact_settings: Settings) -> None:
+async def test_list_paths_pagination(
+    artifact_db: aiosqlite.Connection, artifact_settings: Settings
+) -> None:
     await run_full_scan(artifact_db, artifact_settings.paths.claude_home)
 
-    writes = await repo.list_all_artifacts(artifact_db, tool_filter="Write")
-    assert len(writes) == 1
-    assert writes[0].tool_name == "Write"
+    page1 = await repo.list_artifact_paths(artifact_db, limit=1, offset=0)
+    page2 = await repo.list_artifact_paths(artifact_db, limit=1, offset=1)
+    assert len(page1) == 1 and len(page2) == 1
+    assert page1[0].path != page2[0].path
 
-    edits = await repo.list_all_artifacts(artifact_db, tool_filter="Edit")
-    assert len(edits) == 1
-    assert edits[0].tool_name == "Edit"
+
+# ---------- list_sessions_for_artifact_path: path → 세션 역참조 ----------
+
+
+async def test_list_sessions_for_path(
+    artifact_db: aiosqlite.Connection, artifact_settings: Settings
+) -> None:
+    await run_full_scan(artifact_db, artifact_settings.paths.claude_home)
+
+    sessions = await repo.list_sessions_for_artifact_path(artifact_db, "/tmp/art/a.md")
+    assert len(sessions) == 2
+    # MAX(created_at) DESC 정렬 — session-two 가 먼저
+    assert sessions[0].session_id == "session-two"
+    assert sessions[1].session_id == "session-one"
+
+    # session-one 은 Write + Edit 2건 → edit_count=2, 마지막 tool 은 Edit
+    s_one = sessions[1]
+    assert s_one.edit_count == 2
+    assert s_one.tool_name == "Edit"
+    assert s_one.message_uuid == "a2"
+    assert s_one.decoded_cwd == "/tmp/proj-art"
+    assert s_one.session_summary == "first"
+
+
+async def test_sessions_for_missing_path_empty(
+    artifact_db: aiosqlite.Connection, artifact_settings: Settings
+) -> None:
+    await run_full_scan(artifact_db, artifact_settings.paths.claude_home)
+
+    sessions = await repo.list_sessions_for_artifact_path(artifact_db, "/tmp/art/does-not-exist.md")
+    assert sessions == []
+
+
+async def test_cascade_on_session_delete(
+    artifact_db: aiosqlite.Connection, artifact_settings: Settings
+) -> None:
+    """FK CASCADE — session 행 삭제 시 artifact 도 함께 사라짐."""
+    await run_full_scan(artifact_db, artifact_settings.paths.claude_home)
+
+    await artifact_db.execute("DELETE FROM sessions WHERE session_id = 'session-two'")
+    await artifact_db.commit()
+
+    cur = await artifact_db.execute("SELECT COUNT(*) AS c FROM artifacts")
+    assert (await cur.fetchone())["c"] == 2  # session-one 의 Write + Edit 만 남음
+
+    items = await repo.list_artifact_paths(artifact_db, limit=10)
+    # b.md 는 session-two 에만 있었으므로 사라짐
+    assert {i.path for i in items} == {"/tmp/art/a.md"}

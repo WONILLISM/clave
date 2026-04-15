@@ -8,8 +8,8 @@ from typing import Any
 import aiosqlite
 
 from clave.models import (
-    ArtifactListItem,
-    ArtifactRow,
+    ArtifactPathItem,
+    ArtifactSessionRef,
     HighlightRow,
     NoteRow,
     ProjectListItem,
@@ -523,76 +523,126 @@ async def bulk_insert_artifacts(
     return len(rows)
 
 
-async def list_artifacts_for_session(
-    conn: aiosqlite.Connection, session_id: str
-) -> list[ArtifactRow]:
-    cur = await conn.execute(
-        """
-        SELECT artifact_id, session_id, path, tool_name, message_uuid, created_at
-        FROM artifacts
-        WHERE session_id = ?
-        ORDER BY created_at ASC, artifact_id ASC
-        """,
-        (session_id,),
-    )
-    # exists 는 API 레이어에서 계산하므로 여기선 placeholder(False).
-    return [
-        ArtifactRow(
-            artifact_id=r["artifact_id"],
-            session_id=r["session_id"],
-            path=r["path"],
-            tool_name=r["tool_name"],
-            message_uuid=r["message_uuid"],
-            created_at=r["created_at"],
-            exists=False,
-        )
-        for r in await cur.fetchall()
-    ]
-
-
-async def list_all_artifacts(
+async def list_artifact_paths(
     conn: aiosqlite.Connection,
     *,
     limit: int = 50,
     offset: int = 0,
-    tool_filter: str | None = None,
     path_contains: str | None = None,
-) -> list[ArtifactListItem]:
-    """전역 카탈로그. 세션 요약·cwd 조인하여 반환. 최신 created_at DESC."""
+) -> list[ArtifactPathItem]:
+    """Path 중심 카탈로그. GROUP BY path — 1 path = 1 항목.
+
+    각 항목은 편집 횟수, 고유 세션 수, tool 분포, 마지막 수정 시각/세션 요약을 포함한다.
+    exists 는 placeholder(False) 로 채우고 API 레이어에서 os.path.exists 로 채운다.
+    """
     clauses: list[str] = []
     params: list[Any] = []
-    if tool_filter:
-        clauses.append("a.tool_name = ?")
-        params.append(tool_filter)
     if path_contains:
         clauses.append("a.path LIKE ?")
         params.append(f"%{path_contains}%")
     where = f"WHERE {' AND '.join(clauses)}" if clauses else ""
     params.extend([limit, offset])
+    # last_session_id 는 상관 서브쿼리로 — path 당 created_at DESC 의 첫 session_id.
+    # last_session_summary 는 바깥 LEFT JOIN 으로 받음.
     cur = await conn.execute(
         f"""
-        SELECT a.artifact_id, a.session_id, a.path, a.tool_name, a.message_uuid,
-               a.created_at, s.summary AS session_summary, p.decoded_cwd AS session_decoded_cwd
+        SELECT
+            a.path                                        AS path,
+            MAX(a.created_at)                             AS last_modified,
+            COUNT(*)                                      AS edit_count,
+            COUNT(DISTINCT a.session_id)                  AS session_count,
+            GROUP_CONCAT(DISTINCT a.tool_name)            AS tools_csv,
+            (
+                SELECT a2.session_id FROM artifacts a2
+                WHERE a2.path = a.path
+                ORDER BY a2.created_at DESC, a2.artifact_id DESC
+                LIMIT 1
+            )                                             AS last_session_id
         FROM artifacts a
-        JOIN sessions s ON s.session_id = a.session_id
-        LEFT JOIN projects p ON p.project_id = s.project_id
         {where}
-        ORDER BY a.created_at DESC, a.artifact_id DESC
+        GROUP BY a.path
+        ORDER BY last_modified DESC
         LIMIT ? OFFSET ?
         """,
         params,
     )
+    rows = await cur.fetchall()
+    if not rows:
+        return []
+    # summary 를 한 번에 가져오기 위한 IN 쿼리.
+    session_ids = list({r["last_session_id"] for r in rows if r["last_session_id"]})
+    summary_by_id: dict[str, str | None] = {}
+    if session_ids:
+        placeholders = ",".join(["?"] * len(session_ids))
+        cur2 = await conn.execute(
+            f"SELECT session_id, summary FROM sessions WHERE session_id IN ({placeholders})",
+            session_ids,
+        )
+        for r in await cur2.fetchall():
+            summary_by_id[r["session_id"]] = r["summary"]
+
     return [
-        ArtifactListItem(
-            artifact_id=r["artifact_id"],
-            session_id=r["session_id"],
+        ArtifactPathItem(
             path=r["path"],
+            last_modified=r["last_modified"],
+            edit_count=r["edit_count"],
+            session_count=r["session_count"],
+            tools=sorted((r["tools_csv"] or "").split(",")) if r["tools_csv"] else [],
+            last_session_id=r["last_session_id"],
+            last_session_summary=summary_by_id.get(r["last_session_id"]),
+            exists=False,
+        )
+        for r in rows
+    ]
+
+
+async def list_sessions_for_artifact_path(
+    conn: aiosqlite.Connection,
+    path: str,
+    *,
+    limit: int = 30,
+    offset: int = 0,
+) -> list[ArtifactSessionRef]:
+    """특정 path 를 건드린 세션들. MAX(created_at) DESC 로 정렬."""
+    cur = await conn.execute(
+        """
+        SELECT
+            a.session_id                         AS session_id,
+            s.summary                            AS session_summary,
+            p.decoded_cwd                        AS decoded_cwd,
+            MAX(a.created_at)                    AS created_at,
+            COUNT(*)                             AS edit_count,
+            (
+                SELECT a2.tool_name FROM artifacts a2
+                WHERE a2.session_id = a.session_id AND a2.path = ?
+                ORDER BY a2.created_at DESC, a2.artifact_id DESC
+                LIMIT 1
+            )                                    AS tool_name,
+            (
+                SELECT a2.message_uuid FROM artifacts a2
+                WHERE a2.session_id = a.session_id AND a2.path = ?
+                ORDER BY a2.created_at DESC, a2.artifact_id DESC
+                LIMIT 1
+            )                                    AS message_uuid
+        FROM artifacts a
+        LEFT JOIN sessions s ON s.session_id = a.session_id
+        LEFT JOIN projects p ON p.project_id = s.project_id
+        WHERE a.path = ?
+        GROUP BY a.session_id
+        ORDER BY MAX(a.created_at) DESC
+        LIMIT ? OFFSET ?
+        """,
+        (path, path, path, limit, offset),
+    )
+    return [
+        ArtifactSessionRef(
+            session_id=r["session_id"],
+            session_summary=r["session_summary"],
+            decoded_cwd=r["decoded_cwd"],
             tool_name=r["tool_name"],
             message_uuid=r["message_uuid"],
             created_at=r["created_at"],
-            exists=False,
-            session_summary=r["session_summary"],
-            session_decoded_cwd=r["session_decoded_cwd"],
+            edit_count=r["edit_count"],
         )
         for r in await cur.fetchall()
     ]

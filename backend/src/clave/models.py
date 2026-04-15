@@ -52,18 +52,6 @@ class NoteRow(BaseModel):
     updated_at: str
 
 
-class ArtifactRow(BaseModel):
-    """세션이 Write/Edit/MultiEdit 로 만든 파일 한 항목."""
-
-    artifact_id: int
-    session_id: str
-    path: str
-    tool_name: str  # 'Write' | 'Edit' | 'MultiEdit'
-    message_uuid: str | None = None
-    created_at: str
-    exists: bool  # 동적 계산 (응답 직전 os.path.exists)
-
-
 class HighlightRow(BaseModel):
     """세션 메시지에서 사용자가 선택·저장한 텍스트 인용."""
 
@@ -151,16 +139,34 @@ class SearchResponse(BaseModel):
     query: str
 
 
-class ArtifactListItem(ArtifactRow):
-    """Global 카탈로그용. ArtifactRow 와 동일 필드 + 세션 요약 메타."""
+class ArtifactPathItem(BaseModel):
+    """/artifacts 카탈로그의 한 행 — 1 path = 1 항목."""
 
+    path: str
+    last_modified: str  # MAX(created_at)
+    edit_count: int  # 이 path 에 대한 전체 Write/Edit/MultiEdit 이벤트 수
+    session_count: int  # 이 path 를 건드린 고유 세션 수
+    tools: list[str]  # 고유 tool_name (예: ["Edit", "Write"])
+    last_session_id: str
+    last_session_summary: str | None = None
+    exists: bool  # 동적 계산 (응답 직전 os.path.exists)
+
+
+class ArtifactPathListResponse(BaseModel):
+    items: list[ArtifactPathItem]
+    next_offset: int | None = None
+
+
+class ArtifactSessionRef(BaseModel):
+    """특정 path 를 건드린 한 세션 요약 (path 역참조 drawer)."""
+
+    session_id: str
     session_summary: str | None = None
-    session_decoded_cwd: str | None = None
-
-
-class ArtifactListResponse(BaseModel):
-    items: list[ArtifactListItem]
-    next_cursor: str | None = None
+    decoded_cwd: str | None = None
+    tool_name: str  # 이 세션에서 마지막으로 쓴 tool
+    message_uuid: str | None = None  # 이 세션에서 마지막 tool_use 의 uuid
+    created_at: str  # 이 세션에서의 가장 최근 수정 시각 (MAX)
+    edit_count: int  # 이 세션 내 해당 path 수정 횟수
 
 
 class RescanRequest(BaseModel):

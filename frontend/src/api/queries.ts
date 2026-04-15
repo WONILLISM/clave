@@ -21,12 +21,10 @@ export type SessionsQuery =
 
 export type TagListItem = components["schemas"]["TagListItem"];
 export type NoteRow = components["schemas"]["NoteRow"];
-export type ArtifactRow = components["schemas"]["ArtifactRow"];
-export type ArtifactListItem = components["schemas"]["ArtifactListItem"];
-export type ArtifactListResponse = components["schemas"]["ArtifactListResponse"];
-
-export type ArtifactsQuery =
-  operations["list_artifacts_endpoint_api_artifacts_get"]["parameters"]["query"];
+export type ArtifactPathItem = components["schemas"]["ArtifactPathItem"];
+export type ArtifactPathListResponse =
+  components["schemas"]["ArtifactPathListResponse"];
+export type ArtifactSessionRef = components["schemas"]["ArtifactSessionRef"];
 
 export type HighlightRow = components["schemas"]["HighlightRow"];
 
@@ -108,28 +106,32 @@ export function useHighlights(sessionId: string) {
   });
 }
 
-// ── Artifacts ───────────────────────────────────────────────
-export function useSessionArtifacts(sessionId: string) {
+// ── Artifacts (path-grouped 카탈로그 + 세션 역참조) ────────
+export function useArtifactPaths(params?: {
+  limit?: number;
+  offset?: number;
+  q?: string;
+}) {
+  const qs = new URLSearchParams();
+  if (params?.limit != null) qs.set("limit", String(params.limit));
+  if (params?.offset != null) qs.set("offset", String(params.offset));
+  if (params?.q) qs.set("q", params.q);
+  const s = qs.toString();
   return useQuery({
-    queryKey: ["artifacts", sessionId],
+    queryKey: ["artifact-paths", params ?? {}],
     queryFn: () =>
-      api<ArtifactRow[]>(`/api/sessions/${sessionId}/artifacts`),
-    enabled: !!sessionId,
+      api<ArtifactPathListResponse>(`/api/artifacts/paths${s ? `?${s}` : ""}`),
   });
 }
 
-export function useArtifacts(params?: ArtifactsQuery) {
-  const search = new URLSearchParams();
-  if (params) {
-    for (const [k, v] of Object.entries(params)) {
-      if (v != null) search.set(k, String(v));
-    }
-  }
-  const qs = search.toString();
+export function useArtifactSessions(path: string | null) {
   return useQuery({
-    queryKey: ["artifacts-list", params ?? {}],
+    queryKey: ["artifact-sessions", path],
     queryFn: () =>
-      api<ArtifactListResponse>(`/api/artifacts${qs ? `?${qs}` : ""}`),
+      api<ArtifactSessionRef[]>(
+        `/api/artifacts/sessions?path=${encodeURIComponent(path!)}`,
+      ),
+    enabled: !!path,
   });
 }
 

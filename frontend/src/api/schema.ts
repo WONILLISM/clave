@@ -230,15 +230,15 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/sessions/{session_id}/artifacts": {
+    "/api/artifacts/paths": {
         parameters: {
             query?: never;
             header?: never;
             path?: never;
             cookie?: never;
         };
-        /** List Session Artifacts Endpoint */
-        get: operations["list_session_artifacts_endpoint_api_sessions__session_id__artifacts_get"];
+        /** List Artifact Paths Endpoint */
+        get: operations["list_artifact_paths_endpoint_api_artifacts_paths_get"];
         put?: never;
         post?: never;
         delete?: never;
@@ -247,15 +247,15 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/artifacts": {
+    "/api/artifacts/sessions": {
         parameters: {
             query?: never;
             header?: never;
             path?: never;
             cookie?: never;
         };
-        /** List Artifacts Endpoint */
-        get: operations["list_artifacts_endpoint_api_artifacts_get"];
+        /** List Artifact Path Sessions Endpoint */
+        get: operations["list_artifact_path_sessions_endpoint_api_artifacts_sessions_get"];
         put?: never;
         post?: never;
         delete?: never;
@@ -289,55 +289,53 @@ export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
         /**
-         * ArtifactListItem
-         * @description Global 카탈로그용. ArtifactRow 와 동일 필드 + 세션 요약 메타.
+         * ArtifactPathItem
+         * @description /artifacts 카탈로그의 한 행 — 1 path = 1 항목.
          */
-        ArtifactListItem: {
-            /** Artifact Id */
-            artifact_id: number;
-            /** Session Id */
-            session_id: string;
+        ArtifactPathItem: {
             /** Path */
             path: string;
-            /** Tool Name */
-            tool_name: string;
-            /** Message Uuid */
-            message_uuid?: string | null;
-            /** Created At */
-            created_at: string;
+            /** Last Modified */
+            last_modified: string;
+            /** Edit Count */
+            edit_count: number;
+            /** Session Count */
+            session_count: number;
+            /** Tools */
+            tools: string[];
+            /** Last Session Id */
+            last_session_id: string;
+            /** Last Session Summary */
+            last_session_summary?: string | null;
             /** Exists */
             exists: boolean;
-            /** Session Summary */
-            session_summary?: string | null;
-            /** Session Decoded Cwd */
-            session_decoded_cwd?: string | null;
         };
-        /** ArtifactListResponse */
-        ArtifactListResponse: {
+        /** ArtifactPathListResponse */
+        ArtifactPathListResponse: {
             /** Items */
-            items: components["schemas"]["ArtifactListItem"][];
-            /** Next Cursor */
-            next_cursor?: string | null;
+            items: components["schemas"]["ArtifactPathItem"][];
+            /** Next Offset */
+            next_offset?: number | null;
         };
         /**
-         * ArtifactRow
-         * @description 세션이 Write/Edit/MultiEdit 로 만든 파일 한 항목.
+         * ArtifactSessionRef
+         * @description 특정 path 를 건드린 한 세션 요약 (path 역참조 drawer).
          */
-        ArtifactRow: {
-            /** Artifact Id */
-            artifact_id: number;
+        ArtifactSessionRef: {
             /** Session Id */
             session_id: string;
-            /** Path */
-            path: string;
+            /** Session Summary */
+            session_summary?: string | null;
+            /** Decoded Cwd */
+            decoded_cwd?: string | null;
             /** Tool Name */
             tool_name: string;
             /** Message Uuid */
             message_uuid?: string | null;
             /** Created At */
             created_at: string;
-            /** Exists */
-            exists: boolean;
+            /** Edit Count */
+            edit_count: number;
         };
         /** AttachTagRequest */
         AttachTagRequest: {
@@ -1136,46 +1134,13 @@ export interface operations {
             };
         };
     };
-    list_session_artifacts_endpoint_api_sessions__session_id__artifacts_get: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                session_id: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ArtifactRow"][];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    list_artifacts_endpoint_api_artifacts_get: {
+    list_artifact_paths_endpoint_api_artifacts_paths_get: {
         parameters: {
             query?: {
                 limit?: number;
                 offset?: number;
-                /** @description 'Write' | 'Edit' | 'MultiEdit' */
-                tool?: string | null;
                 /** @description path substring (LIKE) */
-                path_contains?: string | null;
+                q?: string | null;
             };
             header?: never;
             path?: never;
@@ -1189,7 +1154,41 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["ArtifactListResponse"];
+                    "application/json": components["schemas"]["ArtifactPathListResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_artifact_path_sessions_endpoint_api_artifacts_sessions_get: {
+        parameters: {
+            query: {
+                /** @description 파일 전체 경로 (path 역참조) */
+                path: string;
+                limit?: number;
+                offset?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ArtifactSessionRef"][];
                 };
             };
             /** @description Validation Error */

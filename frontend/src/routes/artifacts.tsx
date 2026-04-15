@@ -1,88 +1,49 @@
 import { useState } from "react";
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { Search, ChevronLeft, ChevronRight } from "lucide-react";
-import { useArtifacts } from "~/api/queries";
+import { useArtifactPaths } from "~/api/queries";
 import { ArtifactsTable } from "~/components/artifacts/ArtifactsTable";
-
-type ToolFilter = "Write" | "Edit" | "MultiEdit";
+import { ArtifactSessionsDrawer } from "~/components/artifacts/ArtifactSessionsDrawer";
 
 export interface ArtifactsSearch {
-  tool?: ToolFilter;
   q?: string;
   offset?: number;
 }
 
 const PAGE_SIZE = 50;
-const TOOLS: ToolFilter[] = ["Write", "Edit", "MultiEdit"];
 
 export const Route = createFileRoute("/artifacts")({
   component: ArtifactsPage,
   validateSearch: (search: Record<string, unknown>): ArtifactsSearch => {
-    const toolRaw = search.tool;
-    const tool =
-      toolRaw === "Write" || toolRaw === "Edit" || toolRaw === "MultiEdit"
-        ? (toolRaw as ToolFilter)
-        : undefined;
     const offsetRaw = Number(search.offset);
-    const offset = Number.isFinite(offsetRaw) && offsetRaw > 0 ? offsetRaw : undefined;
+    const offset =
+      Number.isFinite(offsetRaw) && offsetRaw > 0 ? offsetRaw : undefined;
     const q = typeof search.q === "string" && search.q ? search.q : undefined;
-    return { tool, q, offset };
+    return { q, offset };
   },
 });
 
 function ArtifactsPage() {
-  const { tool, q, offset = 0 } = Route.useSearch();
+  const { q, offset = 0 } = Route.useSearch();
   const navigate = useNavigate({ from: "/artifacts" });
   const [queryInput, setQueryInput] = useState(q ?? "");
+  const [selectedPath, setSelectedPath] = useState<string | null>(null);
 
-  const { data, isPending, error } = useArtifacts({
+  const { data, isPending, error } = useArtifactPaths({
     limit: PAGE_SIZE,
     offset,
-    tool: tool ?? null,
-    path_contains: q ?? null,
+    q,
   });
 
   const submitSearch = (value: string) => {
     const next = value.trim() || undefined;
-    navigate({ search: { tool, q: next, offset: undefined } });
+    navigate({ search: { q: next, offset: undefined } });
   };
 
   return (
     <div className="flex flex-1 flex-col overflow-auto bg-surface-dim">
       {/* Filter bar */}
       <div className="flex items-center gap-2 border-b border-outline-variant/10 px-4 py-2">
-        {/* Tool filter */}
-        <div className="flex items-center gap-1">
-          <button
-            onClick={() =>
-              navigate({ search: { tool: undefined, q, offset: undefined } })
-            }
-            className={`rounded-xs border px-2 py-1 font-mono text-xs transition-colors ${
-              !tool
-                ? "border-primary bg-primary/10 text-primary"
-                : "border-outline-variant/20 bg-surface-container-high text-on-surface-variant hover:border-primary/50"
-            }`}
-          >
-            전체
-          </button>
-          {TOOLS.map((t) => (
-            <button
-              key={t}
-              onClick={() =>
-                navigate({ search: { tool: t, q, offset: undefined } })
-              }
-              className={`rounded-xs border px-2 py-1 font-mono text-xs transition-colors ${
-                tool === t
-                  ? "border-primary bg-primary/10 text-primary"
-                  : "border-outline-variant/20 bg-surface-container-high text-on-surface-variant hover:border-primary/50"
-              }`}
-            >
-              {t}
-            </button>
-          ))}
-        </div>
-
-        {/* Path search */}
         <form
           onSubmit={(e) => {
             e.preventDefault();
@@ -95,11 +56,11 @@ function ArtifactsPage() {
             value={queryInput}
             onChange={(e) => setQueryInput(e.target.value)}
             placeholder="경로 포함"
-            className="w-48 bg-transparent font-mono text-xs text-on-surface placeholder:text-outline/50 focus:outline-none"
+            className="w-64 bg-transparent font-mono text-xs text-on-surface placeholder:text-outline/50 focus:outline-none"
           />
         </form>
 
-        {(tool || q) && (
+        {q && (
           <button
             onClick={() => {
               setQueryInput("");
@@ -126,17 +87,18 @@ function ArtifactsPage() {
           산출물이 없어.
         </div>
       )}
-      {data && data.items.length > 0 && <ArtifactsTable items={data.items} />}
+      {data && data.items.length > 0 && (
+        <ArtifactsTable items={data.items} onSelectPath={setSelectedPath} />
+      )}
 
       {/* Pagination */}
-      {data && (offset > 0 || data.next_cursor) && (
+      {data && (offset > 0 || data.next_offset != null) && (
         <div className="flex items-center justify-between border-t border-outline-variant/10 px-4 py-2">
           <button
             disabled={offset === 0}
             onClick={() =>
               navigate({
                 search: {
-                  tool,
                   q,
                   offset: Math.max(0, offset - PAGE_SIZE) || undefined,
                 },
@@ -151,10 +113,10 @@ function ArtifactsPage() {
             {offset + 1}–{offset + data.items.length}
           </span>
           <button
-            disabled={!data.next_cursor}
+            disabled={data.next_offset == null}
             onClick={() =>
               navigate({
-                search: { tool, q, offset: offset + PAGE_SIZE },
+                search: { q, offset: offset + PAGE_SIZE },
               })
             }
             className="flex items-center gap-1 rounded-xs border border-outline-variant/20 bg-surface-container-high px-2 py-1 font-mono text-xs text-on-surface-variant transition-colors hover:border-primary/50 disabled:cursor-not-allowed disabled:opacity-40"
@@ -164,6 +126,11 @@ function ArtifactsPage() {
           </button>
         </div>
       )}
+
+      <ArtifactSessionsDrawer
+        path={selectedPath}
+        onClose={() => setSelectedPath(null)}
+      />
     </div>
   );
 }

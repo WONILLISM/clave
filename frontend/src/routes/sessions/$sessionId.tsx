@@ -14,7 +14,6 @@ import {
   useSessions,
   useTags,
   useNotes,
-  useSessionArtifacts,
   useHighlights,
 } from "~/api/queries";
 import {
@@ -32,7 +31,6 @@ import { shortenPath } from "~/lib/format";
 import { SessionHistoryPane } from "~/components/session-detail/SessionHistoryPane";
 import { SessionStream } from "~/components/session-detail/SessionStream";
 import { NotesPanel } from "~/components/session-detail/NotesPanel";
-import { ArtifactsPanel } from "~/components/session-detail/ArtifactsPanel";
 import { HighlightsPanel } from "~/components/session-detail/HighlightsPanel";
 import { HighlightSelectionToolbar } from "~/components/session-detail/HighlightSelectionToolbar";
 
@@ -62,7 +60,6 @@ function SessionDetailPage() {
   const detachTag = useDetachTag();
 
   const { data: notes } = useNotes(sessionId);
-  const { data: artifacts } = useSessionArtifacts(sessionId);
   const { data: highlights } = useHighlights(sessionId);
   const createNote = useCreateNote();
   const updateNote = useUpdateNote();
@@ -254,9 +251,6 @@ function SessionDetailPage() {
           onDelete={(noteId) => deleteNote.mutate({ noteId, sessionId })}
           isAdding={createNote.isPending}
         />
-
-        {/* Artifacts */}
-        <ArtifactsPanel artifacts={artifacts ?? []} />
 
         {/* Highlights */}
         <HighlightsPanel
