@@ -208,7 +208,7 @@ function MessageBlock({
 
   if (msg.type === "user") {
     return (
-      <article className="flex gap-4">
+      <article className="flex gap-4" data-message-uuid={msg.uuid ?? undefined}>
         <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded border border-outline-variant/30 bg-surface-container-highest">
           <User size={18} className="text-outline" />
         </div>
@@ -228,7 +228,7 @@ function MessageBlock({
     const tools = (msg.tool_use ?? []) as ToolUseEntry[];
 
     return (
-      <article className="flex gap-4">
+      <article className="flex gap-4" data-message-uuid={msg.uuid ?? undefined}>
         <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded border border-primary/30 bg-primary-container/20">
           <Bot size={18} className="text-primary" />
         </div>

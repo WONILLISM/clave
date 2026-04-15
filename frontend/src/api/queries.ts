@@ -28,6 +28,8 @@ export type ArtifactListResponse = components["schemas"]["ArtifactListResponse"]
 export type ArtifactsQuery =
   operations["list_artifacts_endpoint_api_artifacts_get"]["parameters"]["query"];
 
+export type HighlightRow = components["schemas"]["HighlightRow"];
+
 // 검색 응답 (schema.ts 재생성 전이므로 인라인 정의)
 export interface SearchResponse {
   items: SessionListItem[];
@@ -92,6 +94,16 @@ export function useNotes(sessionId: string) {
   return useQuery({
     queryKey: ["notes", sessionId],
     queryFn: () => api<NoteRow[]>(`/api/sessions/${sessionId}/notes`),
+    enabled: !!sessionId,
+  });
+}
+
+// ── Highlights ──────────────────────────────────────────────
+export function useHighlights(sessionId: string) {
+  return useQuery({
+    queryKey: ["highlights", sessionId],
+    queryFn: () =>
+      api<HighlightRow[]>(`/api/sessions/${sessionId}/highlights`),
     enabled: !!sessionId,
   });
 }

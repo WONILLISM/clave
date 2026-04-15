@@ -64,6 +64,17 @@ class ArtifactRow(BaseModel):
     exists: bool  # 동적 계산 (응답 직전 os.path.exists)
 
 
+class HighlightRow(BaseModel):
+    """세션 메시지에서 사용자가 선택·저장한 텍스트 인용."""
+
+    highlight_id: int
+    session_id: str
+    message_uuid: str | None = None
+    text: str
+    kind: str  # 'insight' 기본, 추후 'prompt'|'recipe'|'snippet' 확장 여지
+    created_at: str
+
+
 # ---------- API response wrappers ----------
 
 
@@ -127,6 +138,12 @@ class CreateNoteRequest(BaseModel):
 
 class UpdateNoteRequest(BaseModel):
     body: str
+
+
+class CreateHighlightRequest(BaseModel):
+    message_uuid: str | None = None
+    text: str
+    kind: str = "insight"
 
 
 class SearchResponse(BaseModel):

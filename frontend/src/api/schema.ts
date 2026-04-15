@@ -195,6 +195,41 @@ export interface paths {
         patch: operations["update_note_endpoint_api_notes__note_id__patch"];
         trace?: never;
     };
+    "/api/sessions/{session_id}/highlights": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List Highlights Endpoint */
+        get: operations["list_highlights_endpoint_api_sessions__session_id__highlights_get"];
+        put?: never;
+        /** Create Highlight Endpoint */
+        post: operations["create_highlight_endpoint_api_sessions__session_id__highlights_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/highlights/{highlight_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** Delete Highlight Endpoint */
+        delete: operations["delete_highlight_endpoint_api_highlights__highlight_id__delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/sessions/{session_id}/artifacts": {
         parameters: {
             query?: never;
@@ -311,6 +346,18 @@ export interface components {
             /** Name */
             name?: string | null;
         };
+        /** CreateHighlightRequest */
+        CreateHighlightRequest: {
+            /** Message Uuid */
+            message_uuid?: string | null;
+            /** Text */
+            text: string;
+            /**
+             * Kind
+             * @default insight
+             */
+            kind: string;
+        };
         /** CreateNoteRequest */
         CreateNoteRequest: {
             /** Body */
@@ -336,6 +383,24 @@ export interface components {
             db_path: string;
             /** Indexed Sessions */
             indexed_sessions: number;
+        };
+        /**
+         * HighlightRow
+         * @description 세션 메시지에서 사용자가 선택·저장한 텍스트 인용.
+         */
+        HighlightRow: {
+            /** Highlight Id */
+            highlight_id: number;
+            /** Session Id */
+            session_id: string;
+            /** Message Uuid */
+            message_uuid?: string | null;
+            /** Text */
+            text: string;
+            /** Kind */
+            kind: string;
+            /** Created At */
+            created_at: string;
         };
         /**
          * MessageItem
@@ -964,6 +1029,101 @@ export interface operations {
                 content: {
                     "application/json": components["schemas"]["NoteRow"];
                 };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_highlights_endpoint_api_sessions__session_id__highlights_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                session_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HighlightRow"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    create_highlight_endpoint_api_sessions__session_id__highlights_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                session_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateHighlightRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HighlightRow"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    delete_highlight_endpoint_api_highlights__highlight_id__delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                highlight_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
             };
             /** @description Validation Error */
             422: {

@@ -10,6 +10,7 @@ import aiosqlite
 from clave.models import (
     ArtifactListItem,
     ArtifactRow,
+    HighlightRow,
     NoteRow,
     ProjectListItem,
     ProjectRow,
@@ -442,6 +443,47 @@ async def update_note(conn: aiosqlite.Connection, note_id: int, body: str) -> No
 
 async def delete_note(conn: aiosqlite.Connection, note_id: int) -> bool:
     cur = await conn.execute("DELETE FROM notes WHERE note_id = ?", (note_id,))
+    return cur.rowcount > 0
+
+
+# ---------- Highlights ----------
+
+
+async def list_highlights(conn: aiosqlite.Connection, session_id: str) -> list[HighlightRow]:
+    cur = await conn.execute(
+        "SELECT * FROM highlights WHERE session_id = ? ORDER BY created_at DESC",
+        (session_id,),
+    )
+    return [HighlightRow(**dict(r)) for r in await cur.fetchall()]
+
+
+async def create_highlight(
+    conn: aiosqlite.Connection,
+    session_id: str,
+    message_uuid: str | None,
+    text: str,
+    kind: str,
+) -> HighlightRow:
+    now = _now()
+    cur = await conn.execute(
+        "INSERT INTO highlights (session_id, message_uuid, text, kind, created_at) "
+        "VALUES (?, ?, ?, ?, ?)",
+        (session_id, message_uuid, text, kind, now),
+    )
+    highlight_id = cur.lastrowid
+    assert highlight_id is not None
+    return HighlightRow(
+        highlight_id=highlight_id,
+        session_id=session_id,
+        message_uuid=message_uuid,
+        text=text,
+        kind=kind,
+        created_at=now,
+    )
+
+
+async def delete_highlight(conn: aiosqlite.Connection, highlight_id: int) -> bool:
+    cur = await conn.execute("DELETE FROM highlights WHERE highlight_id = ?", (highlight_id,))
     return cur.rowcount > 0
 
 

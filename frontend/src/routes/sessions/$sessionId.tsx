@@ -1,4 +1,4 @@
-import { useState, useCallback } from "react";
+import { useState, useCallback, useRef } from "react";
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import {
   Copy,
@@ -15,6 +15,7 @@ import {
   useTags,
   useNotes,
   useSessionArtifacts,
+  useHighlights,
 } from "~/api/queries";
 import {
   usePinSession,
@@ -24,12 +25,16 @@ import {
   useCreateNote,
   useUpdateNote,
   useDeleteNote,
+  useCreateHighlight,
+  useDeleteHighlight,
 } from "~/api/mutations";
 import { shortenPath } from "~/lib/format";
 import { SessionHistoryPane } from "~/components/session-detail/SessionHistoryPane";
 import { SessionStream } from "~/components/session-detail/SessionStream";
 import { NotesPanel } from "~/components/session-detail/NotesPanel";
 import { ArtifactsPanel } from "~/components/session-detail/ArtifactsPanel";
+import { HighlightsPanel } from "~/components/session-detail/HighlightsPanel";
+import { HighlightSelectionToolbar } from "~/components/session-detail/HighlightSelectionToolbar";
 
 export const Route = createFileRoute("/sessions/$sessionId")({
   component: SessionDetailPage,
@@ -58,9 +63,21 @@ function SessionDetailPage() {
 
   const { data: notes } = useNotes(sessionId);
   const { data: artifacts } = useSessionArtifacts(sessionId);
+  const { data: highlights } = useHighlights(sessionId);
   const createNote = useCreateNote();
   const updateNote = useUpdateNote();
   const deleteNote = useDeleteNote();
+  const createHighlight = useCreateHighlight();
+  const deleteHighlight = useDeleteHighlight();
+
+  const streamRef = useRef<HTMLDivElement | null>(null);
+
+  const handleJumpToMessage = useCallback((messageUuid: string) => {
+    const el = streamRef.current?.querySelector<HTMLElement>(
+      `[data-message-uuid="${messageUuid}"]`,
+    );
+    if (el) el.scrollIntoView({ behavior: "smooth", block: "start" });
+  }, []);
 
   const handleLoadMore = useCallback(() => {
     if (data?.has_more) setOffset(data.next_offset);
@@ -241,14 +258,32 @@ function SessionDetailPage() {
         {/* Artifacts */}
         <ArtifactsPanel artifacts={artifacts ?? []} />
 
+        {/* Highlights */}
+        <HighlightsPanel
+          highlights={highlights ?? []}
+          onDelete={(highlightId) =>
+            deleteHighlight.mutate({ highlightId, sessionId })
+          }
+          onJumpToMessage={handleJumpToMessage}
+        />
+
         {/* Messages */}
-        <div className="flex-1 overflow-y-auto">
+        <div ref={streamRef} className="flex-1 overflow-y-auto">
           <SessionStream
             messages={data.messages}
             hasMore={data.has_more}
             onLoadMore={handleLoadMore}
           />
         </div>
+        <HighlightSelectionToolbar
+          containerRef={streamRef}
+          onSave={({ text, messageUuid }) =>
+            createHighlight.mutate({
+              sessionId,
+              body: { text, message_uuid: messageUuid, kind: "insight" },
+            })
+          }
+        />
 
         {/* Footer actions */}
         <footer className="flex items-center border-t border-outline-variant/30 bg-surface-variant/70 p-4 backdrop-blur-md">

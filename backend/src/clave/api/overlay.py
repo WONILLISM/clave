@@ -10,8 +10,10 @@ from clave.models import (
     ArtifactListResponse,
     ArtifactRow,
     AttachTagRequest,
+    CreateHighlightRequest,
     CreateNoteRequest,
     CreateTagRequest,
+    HighlightRow,
     NoteRow,
     TagListItem,
     TagRow,
@@ -143,6 +145,46 @@ async def delete_note_endpoint(
 ) -> Response:
     if not await repo.delete_note(db, note_id):
         raise HTTPException(status_code=404, detail="note not found")
+    await db.commit()
+    return Response(status_code=status.HTTP_204_NO_CONTENT)
+
+
+# ---------- Highlights ----------
+
+
+@router.get("/sessions/{session_id}/highlights", response_model=list[HighlightRow])
+async def list_highlights_endpoint(
+    session_id: str, db: aiosqlite.Connection = Depends(get_db)
+) -> list[HighlightRow]:
+    return await repo.list_highlights(db, session_id)
+
+
+@router.post(
+    "/sessions/{session_id}/highlights",
+    response_model=HighlightRow,
+    status_code=status.HTTP_201_CREATED,
+)
+async def create_highlight_endpoint(
+    session_id: str,
+    body: CreateHighlightRequest,
+    db: aiosqlite.Connection = Depends(get_db),
+) -> HighlightRow:
+    if await repo.get_session(db, session_id) is None:
+        raise HTTPException(status_code=404, detail="session not found")
+    text = body.text.strip()
+    if not text:
+        raise HTTPException(status_code=400, detail="text is empty")
+    row = await repo.create_highlight(db, session_id, body.message_uuid, text, body.kind)
+    await db.commit()
+    return row
+
+
+@router.delete("/highlights/{highlight_id}", status_code=status.HTTP_204_NO_CONTENT)
+async def delete_highlight_endpoint(
+    highlight_id: int, db: aiosqlite.Connection = Depends(get_db)
+) -> Response:
+    if not await repo.delete_highlight(db, highlight_id):
+        raise HTTPException(status_code=404, detail="highlight not found")
     await db.commit()
     return Response(status_code=status.HTTP_204_NO_CONTENT)
 

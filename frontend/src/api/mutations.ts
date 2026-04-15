@@ -9,6 +9,9 @@ import type { components } from "./schema";
 
 export type TagRow = components["schemas"]["TagRow"];
 export type NoteRow = components["schemas"]["NoteRow"];
+export type HighlightRow = components["schemas"]["HighlightRow"];
+export type CreateHighlightRequest =
+  components["schemas"]["CreateHighlightRequest"];
 export type RescanResponse = components["schemas"]["RescanResponse"];
 
 // ── Pin / Unpin ─────────────────────────────────────────────
@@ -122,6 +125,38 @@ export function useDeleteNote() {
       api<void>(`/api/notes/${vars.noteId}`, { method: "DELETE" }),
     onSuccess: (_data, vars) => {
       qc.invalidateQueries({ queryKey: ["notes", vars.sessionId] });
+    },
+  });
+}
+
+// ── Highlights ──────────────────────────────────────────────
+export function useCreateHighlight() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({
+      sessionId,
+      body,
+    }: {
+      sessionId: string;
+      body: CreateHighlightRequest;
+    }) =>
+      api<HighlightRow>(`/api/sessions/${sessionId}/highlights`, {
+        method: "POST",
+        body: JSON.stringify(body),
+      }),
+    onSuccess: (_data, { sessionId }) => {
+      qc.invalidateQueries({ queryKey: ["highlights", sessionId] });
+    },
+  });
+}
+
+export function useDeleteHighlight() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (vars: { highlightId: number; sessionId: string }) =>
+      api<void>(`/api/highlights/${vars.highlightId}`, { method: "DELETE" }),
+    onSuccess: (_data, vars) => {
+      qc.invalidateQueries({ queryKey: ["highlights", vars.sessionId] });
     },
   });
 }
