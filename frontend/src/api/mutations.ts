@@ -174,6 +174,127 @@ export function useDeleteSession() {
   });
 }
 
+// ── Knowledge ──────────────────────────────────────────────
+export function useCreateKnowledge() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (body: {
+      title: string;
+      body?: string;
+      kind?: string;
+      source_type?: string;
+      source_id?: string;
+    }) =>
+      api<components["schemas"]["KnowledgeRow"]>("/api/knowledge", {
+        method: "POST",
+        body: JSON.stringify(body),
+      }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["knowledge"] });
+    },
+  });
+}
+
+export function useUpdateKnowledge() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (vars: {
+      knowledgeId: number;
+      title?: string;
+      body?: string;
+      kind?: string;
+    }) =>
+      api<components["schemas"]["KnowledgeRow"]>(
+        `/api/knowledge/${vars.knowledgeId}`,
+        {
+          method: "PATCH",
+          body: JSON.stringify({
+            title: vars.title,
+            body: vars.body,
+            kind: vars.kind,
+          }),
+        },
+      ),
+    onSuccess: (_data, vars) => {
+      qc.invalidateQueries({ queryKey: ["knowledge"] });
+      qc.invalidateQueries({ queryKey: ["knowledge", vars.knowledgeId] });
+    },
+  });
+}
+
+export function useDeleteKnowledge() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (knowledgeId: number) =>
+      api<void>(`/api/knowledge/${knowledgeId}`, { method: "DELETE" }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["knowledge"] });
+    },
+  });
+}
+
+export function useCreateKnowledgeLink() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (vars: {
+      knowledgeId: number;
+      from_type: string;
+      from_id: string;
+      to_type: string;
+      to_id: string;
+      relation?: string;
+    }) =>
+      api<components["schemas"]["KnowledgeLinkRow"]>(
+        `/api/knowledge/${vars.knowledgeId}/links`,
+        {
+          method: "POST",
+          body: JSON.stringify({
+            from_type: vars.from_type,
+            from_id: vars.from_id,
+            to_type: vars.to_type,
+            to_id: vars.to_id,
+            relation: vars.relation ?? "related",
+          }),
+        },
+      ),
+    onSuccess: (_data, vars) => {
+      qc.invalidateQueries({ queryKey: ["knowledge", vars.knowledgeId] });
+    },
+  });
+}
+
+export function useDeleteKnowledgeLink() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (vars: { linkId: number; knowledgeId: number }) =>
+      api<void>(`/api/knowledge/links/${vars.linkId}`, { method: "DELETE" }),
+    onSuccess: (_data, vars) => {
+      qc.invalidateQueries({ queryKey: ["knowledge", vars.knowledgeId] });
+    },
+  });
+}
+
+export function usePromoteHighlight() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (body: {
+      highlight_id: number;
+      title?: string;
+      kind?: string;
+    }) =>
+      api<components["schemas"]["KnowledgeRow"]>(
+        "/api/knowledge/from-highlight",
+        {
+          method: "POST",
+          body: JSON.stringify(body),
+        },
+      ),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["knowledge"] });
+    },
+  });
+}
+
 // ── Rescan ──────────────────────────────────────────────────
 export function useRescan() {
   const qc = useQueryClient();

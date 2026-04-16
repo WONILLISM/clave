@@ -83,7 +83,11 @@ export interface paths {
         get: operations["get_session_endpoint_api_sessions__session_id__get"];
         put?: never;
         post?: never;
-        delete?: never;
+        /**
+         * Delete Session Endpoint
+         * @description overlay DB 의 세션 흔적만 삭제. ~/.claude/ 는 절대 건드리지 않는다.
+         */
+        delete: operations["delete_session_endpoint_api_sessions__session_id__delete"];
         options?: never;
         head?: never;
         patch?: never;
@@ -301,6 +305,94 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/knowledge": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List Knowledge Endpoint */
+        get: operations["list_knowledge_endpoint_api_knowledge_get"];
+        put?: never;
+        /** Create Knowledge Endpoint */
+        post: operations["create_knowledge_endpoint_api_knowledge_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/knowledge/{knowledge_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Knowledge Endpoint */
+        get: operations["get_knowledge_endpoint_api_knowledge__knowledge_id__get"];
+        put?: never;
+        post?: never;
+        /** Delete Knowledge Endpoint */
+        delete: operations["delete_knowledge_endpoint_api_knowledge__knowledge_id__delete"];
+        options?: never;
+        head?: never;
+        /** Update Knowledge Endpoint */
+        patch: operations["update_knowledge_endpoint_api_knowledge__knowledge_id__patch"];
+        trace?: never;
+    };
+    "/api/knowledge/{knowledge_id}/links": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Create Link Endpoint */
+        post: operations["create_link_endpoint_api_knowledge__knowledge_id__links_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/knowledge/links/{link_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** Delete Link Endpoint */
+        delete: operations["delete_link_endpoint_api_knowledge_links__link_id__delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/knowledge/from-highlight": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Promote Highlight Endpoint */
+        post: operations["promote_highlight_endpoint_api_knowledge_from_highlight_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -373,6 +465,49 @@ export interface components {
              */
             kind: string;
         };
+        /** CreateKnowledgeRequest */
+        CreateKnowledgeRequest: {
+            /** Title */
+            title: string;
+            /**
+             * Body
+             * @default
+             */
+            body: string;
+            /**
+             * Kind
+             * @default insight
+             * @enum {string}
+             */
+            kind: "prompt" | "recipe" | "snippet" | "insight" | "question";
+            /** Source Type */
+            source_type?: ("knowledge" | "session" | "highlight" | "note") | null;
+            /** Source Id */
+            source_id?: string | null;
+        };
+        /** CreateLinkRequest */
+        CreateLinkRequest: {
+            /**
+             * From Type
+             * @enum {string}
+             */
+            from_type: "knowledge" | "session" | "highlight" | "note";
+            /** From Id */
+            from_id: string;
+            /**
+             * To Type
+             * @enum {string}
+             */
+            to_type: "knowledge" | "session" | "highlight" | "note";
+            /** To Id */
+            to_id: string;
+            /**
+             * Relation
+             * @default related
+             * @enum {string}
+             */
+            relation: "related" | "derives_from" | "refines" | "contradicts";
+        };
         /** CreateNoteRequest */
         CreateNoteRequest: {
             /** Body */
@@ -423,7 +558,7 @@ export interface components {
              * Category
              * @enum {string}
              */
-            category: "stale_session" | "empty_project" | "orphan_project";
+            category: "stale_session" | "empty_project" | "orphan_project" | "orphan_session";
             /** Entity Id */
             entity_id: string;
             /** Display Name */
@@ -451,6 +586,76 @@ export interface components {
             };
             /** Total Size Bytes */
             total_size_bytes: number;
+        };
+        /** KnowledgeDetailResponse */
+        KnowledgeDetailResponse: {
+            item: components["schemas"]["KnowledgeRow"];
+            /** Links */
+            links?: components["schemas"]["KnowledgeLinkRow"][];
+            /** Backlinks */
+            backlinks?: components["schemas"]["KnowledgeLinkRow"][];
+        };
+        /** KnowledgeLinkRow */
+        KnowledgeLinkRow: {
+            /** Link Id */
+            link_id: number;
+            /**
+             * From Type
+             * @enum {string}
+             */
+            from_type: "knowledge" | "session" | "highlight" | "note";
+            /** From Id */
+            from_id: string;
+            /**
+             * To Type
+             * @enum {string}
+             */
+            to_type: "knowledge" | "session" | "highlight" | "note";
+            /** To Id */
+            to_id: string;
+            /**
+             * Relation
+             * @default related
+             * @enum {string}
+             */
+            relation: "related" | "derives_from" | "refines" | "contradicts";
+            /** Created At */
+            created_at: string;
+        };
+        /** KnowledgeListResponse */
+        KnowledgeListResponse: {
+            /** Items */
+            items: components["schemas"]["KnowledgeRow"][];
+            /** Total Count */
+            total_count: number;
+            /** Next Offset */
+            next_offset?: number | null;
+        };
+        /** KnowledgeRow */
+        KnowledgeRow: {
+            /** Knowledge Id */
+            knowledge_id: number;
+            /** Title */
+            title: string;
+            /**
+             * Body
+             * @default
+             */
+            body: string;
+            /**
+             * Kind
+             * @default insight
+             * @enum {string}
+             */
+            kind: "prompt" | "recipe" | "snippet" | "insight" | "question";
+            /** Source Type */
+            source_type?: ("knowledge" | "session" | "highlight" | "note") | null;
+            /** Source Id */
+            source_id?: string | null;
+            /** Created At */
+            created_at: string;
+            /** Updated At */
+            updated_at: string;
         };
         /**
          * MessageItem
@@ -514,6 +719,19 @@ export interface components {
             /** Last Active At */
             last_active_at: string;
         };
+        /** PromoteHighlightRequest */
+        PromoteHighlightRequest: {
+            /** Highlight Id */
+            highlight_id: number;
+            /** Title */
+            title?: string | null;
+            /**
+             * Kind
+             * @default insight
+             * @enum {string}
+             */
+            kind: "prompt" | "recipe" | "snippet" | "insight" | "question";
+        };
         /** RescanRequest */
         RescanRequest: {
             /** Project Id */
@@ -550,6 +768,12 @@ export interface components {
              * @default 0
              */
             next_offset: number;
+            /**
+             * Total Lines
+             * @description total valid message lines in jsonl
+             * @default 0
+             */
+            total_lines: number;
         };
         /** SessionListItem */
         SessionListItem: {
@@ -612,6 +836,15 @@ export interface components {
             color?: string | null;
             /** Created At */
             created_at: string;
+        };
+        /** UpdateKnowledgeRequest */
+        UpdateKnowledgeRequest: {
+            /** Title */
+            title?: string | null;
+            /** Body */
+            body?: string | null;
+            /** Kind */
+            kind?: ("prompt" | "recipe" | "snippet" | "insight" | "question") | null;
         };
         /** UpdateNoteRequest */
         UpdateNoteRequest: {
@@ -756,6 +989,8 @@ export interface operations {
                 /** @description line offset to start from */
                 offset?: number;
                 limit?: number;
+                /** @description true 면 최신 메시지부터 역순 로딩 */
+                from_end?: boolean;
             };
             header?: never;
             path: {
@@ -773,6 +1008,35 @@ export interface operations {
                 content: {
                     "application/json": components["schemas"]["SessionDetailResponse"];
                 };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    delete_session_endpoint_api_sessions__session_id__delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                session_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
             };
             /** @description Validation Error */
             422: {
@@ -1305,6 +1569,265 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["HousekeepingScanResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_knowledge_endpoint_api_knowledge_get: {
+        parameters: {
+            query?: {
+                kind?: string | null;
+                q?: string | null;
+                limit?: number;
+                offset?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["KnowledgeListResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    create_knowledge_endpoint_api_knowledge_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateKnowledgeRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["KnowledgeRow"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_knowledge_endpoint_api_knowledge__knowledge_id__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                knowledge_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["KnowledgeDetailResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    delete_knowledge_endpoint_api_knowledge__knowledge_id__delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                knowledge_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    update_knowledge_endpoint_api_knowledge__knowledge_id__patch: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                knowledge_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UpdateKnowledgeRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["KnowledgeRow"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    create_link_endpoint_api_knowledge__knowledge_id__links_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                knowledge_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateLinkRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["KnowledgeLinkRow"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    delete_link_endpoint_api_knowledge_links__link_id__delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                link_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    promote_highlight_endpoint_api_knowledge_from_highlight_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PromoteHighlightRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["KnowledgeRow"];
                 };
             };
             /** @description Validation Error */

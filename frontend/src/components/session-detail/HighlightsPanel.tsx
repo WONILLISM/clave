@@ -1,7 +1,9 @@
 import { useState } from "react";
-import { Star, Trash2 } from "lucide-react";
+import { useNavigate } from "@tanstack/react-router";
+import { BookOpen, Star, Trash2 } from "lucide-react";
 import { timeAgo } from "~/lib/format";
 import type { HighlightRow } from "~/api/queries";
+import { usePromoteHighlight } from "~/api/mutations";
 
 interface Props {
   highlights: HighlightRow[];
@@ -13,6 +15,8 @@ interface Props {
 export function HighlightsPanel({ highlights, onDelete, onJumpToMessage }: Props) {
   const [expanded, setExpanded] = useState(true);
   const has = highlights.length > 0;
+  const promoteMut = usePromoteHighlight();
+  const navigate = useNavigate();
 
   return (
     <div className="border-b border-outline-variant/30 px-6 py-3">
@@ -45,6 +49,25 @@ export function HighlightsPanel({ highlights, onDelete, onJumpToMessage }: Props
                 <span className="mt-1 inline-block text-xs text-outline">
                   {timeAgo(h.created_at)}
                 </span>
+              </button>
+              <button
+                onClick={() =>
+                  promoteMut.mutate(
+                    { highlight_id: h.highlight_id },
+                    {
+                      onSuccess: (item) =>
+                        navigate({
+                          to: "/knowledge/$knowledgeId",
+                          params: { knowledgeId: String(item.knowledge_id) },
+                        }),
+                    },
+                  )
+                }
+                disabled={promoteMut.isPending}
+                className="rounded-xs p-1 text-outline opacity-0 transition-opacity hover:text-primary group-hover:opacity-100"
+                title="지식으로 승격"
+              >
+                <BookOpen size={12} />
               </button>
               <button
                 onClick={() => onDelete(h.highlight_id)}

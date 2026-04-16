@@ -22,6 +22,11 @@ const CATEGORY_TONE: Record<
       "bg-rose-500/10 text-rose-600 dark:text-rose-400 border border-rose-500/20",
     label: "고아 프로젝트",
   },
+  orphan_session: {
+    badge:
+      "bg-violet-500/10 text-violet-600 dark:text-violet-400 border border-violet-500/20",
+    label: "고아 세션",
+  },
 };
 
 interface CandidatesTableProps {

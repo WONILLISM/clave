@@ -231,3 +231,72 @@ class SessionDetailResponse(BaseModel):
     messages: list[MessageItem]
     has_more: bool
     next_offset: int = Field(0, description="line offset to pass next time")
+    total_lines: int = Field(0, description="total valid message lines in jsonl")
+
+
+# ---------- Knowledge Graph ----------
+
+KnowledgeKind = Literal["prompt", "recipe", "snippet", "insight", "question"]
+LinkRelation = Literal["related", "derives_from", "refines", "contradicts"]
+NodeType = Literal["knowledge", "session", "highlight", "note"]
+
+
+class KnowledgeRow(BaseModel):
+    knowledge_id: int
+    title: str
+    body: str = ""
+    kind: KnowledgeKind = "insight"
+    source_type: NodeType | None = None
+    source_id: str | None = None
+    created_at: str
+    updated_at: str
+
+
+class KnowledgeLinkRow(BaseModel):
+    link_id: int
+    from_type: NodeType
+    from_id: str
+    to_type: NodeType
+    to_id: str
+    relation: LinkRelation = "related"
+    created_at: str
+
+
+class CreateKnowledgeRequest(BaseModel):
+    title: str
+    body: str = ""
+    kind: KnowledgeKind = "insight"
+    source_type: NodeType | None = None
+    source_id: str | None = None
+
+
+class UpdateKnowledgeRequest(BaseModel):
+    title: str | None = None
+    body: str | None = None
+    kind: KnowledgeKind | None = None
+
+
+class CreateLinkRequest(BaseModel):
+    from_type: NodeType
+    from_id: str
+    to_type: NodeType
+    to_id: str
+    relation: LinkRelation = "related"
+
+
+class PromoteHighlightRequest(BaseModel):
+    highlight_id: int
+    title: str | None = None
+    kind: KnowledgeKind = "insight"
+
+
+class KnowledgeDetailResponse(BaseModel):
+    item: KnowledgeRow
+    links: list[KnowledgeLinkRow] = Field(default_factory=list)
+    backlinks: list[KnowledgeLinkRow] = Field(default_factory=list)
+
+
+class KnowledgeListResponse(BaseModel):
+    items: list[KnowledgeRow]
+    total_count: int
+    next_offset: int | None = None

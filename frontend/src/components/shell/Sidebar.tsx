@@ -12,7 +12,7 @@ import {
 } from "lucide-react";
 import { useHealth } from "~/api/queries";
 
-type NavTo = "/" | "/sessions" | "/projects" | "/artifacts" | "/housekeeping";
+type NavTo = "/" | "/sessions" | "/projects" | "/artifacts" | "/housekeeping" | "/knowledge";
 
 type NavItem =
   | { to: NavTo; label: string; icon: LucideIcon; disabled?: false }
@@ -24,7 +24,7 @@ const navItems: NavItem[] = [
   { to: "/projects", label: "프로젝트", icon: FolderOpen },
   { to: "/artifacts", label: "산출물", icon: Package },
   { to: "/housekeeping", label: "정리소", icon: Sparkles },
-  { to: "#", label: "지식", icon: BookOpen, disabled: true },
+  { to: "/knowledge", label: "지식", icon: BookOpen },
   { to: "#", label: "작업", icon: CheckCircle2, disabled: true },
 ];
 

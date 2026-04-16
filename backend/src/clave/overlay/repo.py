@@ -11,6 +11,8 @@ from clave.models import (
     ArtifactPathItem,
     ArtifactSessionRef,
     HighlightRow,
+    KnowledgeLinkRow,
+    KnowledgeRow,
     NoteRow,
     ProjectListItem,
     ProjectRow,
@@ -716,6 +718,286 @@ async def search_sessions(
         for r in rows
     ]
     return SearchResponse(items=items, query=query)
+
+
+# ---------- Knowledge Items ----------
+
+
+async def create_knowledge(
+    conn: aiosqlite.Connection,
+    title: str,
+    body: str = "",
+    kind: str = "insight",
+    source_type: str | None = None,
+    source_id: str | None = None,
+) -> KnowledgeRow:
+    now = _now()
+    cur = await conn.execute(
+        """
+        INSERT INTO knowledge_items (title, body, kind, source_type, source_id, created_at, updated_at)
+        VALUES (?, ?, ?, ?, ?, ?, ?)
+        """,
+        (title, body, kind, source_type, source_id, now, now),
+    )
+    kid = cur.lastrowid
+    assert kid is not None
+    # FTS insert.
+    await conn.execute(
+        "INSERT INTO knowledge_fts(rowid, title, body) VALUES (?, ?, ?)",
+        (kid, title, body),
+    )
+    return KnowledgeRow(
+        knowledge_id=kid,
+        title=title,
+        body=body,
+        kind=kind,
+        source_type=source_type,
+        source_id=source_id,
+        created_at=now,
+        updated_at=now,
+    )
+
+
+async def get_knowledge(conn: aiosqlite.Connection, knowledge_id: int) -> KnowledgeRow | None:
+    cur = await conn.execute(
+        "SELECT * FROM knowledge_items WHERE knowledge_id = ?", (knowledge_id,)
+    )
+    r = await cur.fetchone()
+    if r is None:
+        return None
+    return KnowledgeRow(**dict(r))
+
+
+async def update_knowledge(
+    conn: aiosqlite.Connection,
+    knowledge_id: int,
+    *,
+    title: str | None = None,
+    body: str | None = None,
+    kind: str | None = None,
+) -> KnowledgeRow | None:
+    # Fetch old row for FTS contentless delete.
+    cur = await conn.execute(
+        "SELECT * FROM knowledge_items WHERE knowledge_id = ?", (knowledge_id,)
+    )
+    old = await cur.fetchone()
+    if old is None:
+        return None
+
+    sets: list[str] = []
+    params: list[Any] = []
+    if title is not None:
+        sets.append("title = ?")
+        params.append(title)
+    if body is not None:
+        sets.append("body = ?")
+        params.append(body)
+    if kind is not None:
+        sets.append("kind = ?")
+        params.append(kind)
+    if not sets:
+        return KnowledgeRow(**dict(old))
+
+    now = _now()
+    sets.append("updated_at = ?")
+    params.append(now)
+    params.append(knowledge_id)
+    await conn.execute(
+        f"UPDATE knowledge_items SET {', '.join(sets)} WHERE knowledge_id = ?",
+        params,
+    )
+
+    # FTS contentless: delete old → insert new.
+    await conn.execute(
+        "INSERT INTO knowledge_fts(knowledge_fts, rowid, title, body) VALUES('delete', ?, ?, ?)",
+        (knowledge_id, old["title"], old["body"]),
+    )
+    new_title = title if title is not None else old["title"]
+    new_body = body if body is not None else old["body"]
+    await conn.execute(
+        "INSERT INTO knowledge_fts(rowid, title, body) VALUES (?, ?, ?)",
+        (knowledge_id, new_title, new_body),
+    )
+
+    cur = await conn.execute(
+        "SELECT * FROM knowledge_items WHERE knowledge_id = ?", (knowledge_id,)
+    )
+    r = await cur.fetchone()
+    return KnowledgeRow(**dict(r)) if r else None
+
+
+async def delete_knowledge(conn: aiosqlite.Connection, knowledge_id: int) -> bool:
+    cur = await conn.execute(
+        "SELECT * FROM knowledge_items WHERE knowledge_id = ?", (knowledge_id,)
+    )
+    old = await cur.fetchone()
+    if old is None:
+        return False
+
+    # FTS contentless delete.
+    await conn.execute(
+        "INSERT INTO knowledge_fts(knowledge_fts, rowid, title, body) VALUES('delete', ?, ?, ?)",
+        (knowledge_id, old["title"], old["body"]),
+    )
+    # Clean up links (both directions).
+    await conn.execute(
+        "DELETE FROM knowledge_links WHERE (from_type = 'knowledge' AND from_id = ?) "
+        "OR (to_type = 'knowledge' AND to_id = ?)",
+        (str(knowledge_id), str(knowledge_id)),
+    )
+    await conn.execute("DELETE FROM knowledge_items WHERE knowledge_id = ?", (knowledge_id,))
+    return True
+
+
+async def list_knowledge(
+    conn: aiosqlite.Connection,
+    *,
+    kind: str | None = None,
+    limit: int = 50,
+    offset: int = 0,
+) -> tuple[list[KnowledgeRow], int]:
+    where: list[str] = []
+    params: list[Any] = []
+    if kind:
+        where.append("kind = ?")
+        params.append(kind)
+    where_sql = ("WHERE " + " AND ".join(where)) if where else ""
+
+    cur = await conn.execute(f"SELECT COUNT(*) FROM knowledge_items {where_sql}", params)
+    total = int((await cur.fetchone())[0])
+
+    cur = await conn.execute(
+        f"SELECT * FROM knowledge_items {where_sql} ORDER BY updated_at DESC LIMIT ? OFFSET ?",
+        [*params, limit, offset],
+    )
+    items = [KnowledgeRow(**dict(r)) for r in await cur.fetchall()]
+    return items, total
+
+
+async def search_knowledge(
+    conn: aiosqlite.Connection,
+    query: str,
+    *,
+    limit: int = 20,
+) -> list[KnowledgeRow]:
+    tokens = query.strip().split()
+    if not tokens:
+        return []
+    fts_query = " OR ".join(f'"{t}"' for t in tokens)
+    cur = await conn.execute(
+        """
+        SELECT ki.*
+        FROM knowledge_fts fts
+        JOIN knowledge_items ki ON ki.knowledge_id = fts.rowid
+        WHERE knowledge_fts MATCH ?
+        ORDER BY rank
+        LIMIT ?
+        """,
+        (fts_query, limit),
+    )
+    return [KnowledgeRow(**dict(r)) for r in await cur.fetchall()]
+
+
+# ---------- Knowledge Links ----------
+
+
+async def create_link(
+    conn: aiosqlite.Connection,
+    from_type: str,
+    from_id: str,
+    to_type: str,
+    to_id: str,
+    relation: str = "related",
+) -> KnowledgeLinkRow | None:
+    """Create a link. Returns None if duplicate (UNIQUE constraint)."""
+    now = _now()
+    await conn.execute(
+        """
+        INSERT OR IGNORE INTO knowledge_links (from_type, from_id, to_type, to_id, relation, created_at)
+        VALUES (?, ?, ?, ?, ?, ?)
+        """,
+        (from_type, from_id, to_type, to_id, relation, now),
+    )
+    cur = await conn.execute(
+        """
+        SELECT * FROM knowledge_links
+        WHERE from_type = ? AND from_id = ? AND to_type = ? AND to_id = ?
+        """,
+        (from_type, from_id, to_type, to_id),
+    )
+    r = await cur.fetchone()
+    return KnowledgeLinkRow(**dict(r)) if r else None
+
+
+async def delete_link(conn: aiosqlite.Connection, link_id: int) -> bool:
+    cur = await conn.execute("DELETE FROM knowledge_links WHERE link_id = ?", (link_id,))
+    return cur.rowcount > 0
+
+
+async def list_links(
+    conn: aiosqlite.Connection, node_type: str, node_id: str
+) -> list[KnowledgeLinkRow]:
+    """Outgoing links from a node."""
+    cur = await conn.execute(
+        "SELECT * FROM knowledge_links WHERE from_type = ? AND from_id = ? ORDER BY created_at DESC",
+        (node_type, node_id),
+    )
+    return [KnowledgeLinkRow(**dict(r)) for r in await cur.fetchall()]
+
+
+async def list_backlinks(
+    conn: aiosqlite.Connection, node_type: str, node_id: str
+) -> list[KnowledgeLinkRow]:
+    """Incoming links to a node."""
+    cur = await conn.execute(
+        "SELECT * FROM knowledge_links WHERE to_type = ? AND to_id = ? ORDER BY created_at DESC",
+        (node_type, node_id),
+    )
+    return [KnowledgeLinkRow(**dict(r)) for r in await cur.fetchall()]
+
+
+# ---------- Promote highlight → knowledge ----------
+
+
+async def get_highlight(conn: aiosqlite.Connection, highlight_id: int) -> HighlightRow | None:
+    cur = await conn.execute("SELECT * FROM highlights WHERE highlight_id = ?", (highlight_id,))
+    r = await cur.fetchone()
+    return HighlightRow(**dict(r)) if r else None
+
+
+async def promote_highlight_to_knowledge(
+    conn: aiosqlite.Connection,
+    highlight_id: int,
+    title: str | None = None,
+    kind: str = "insight",
+) -> KnowledgeRow | None:
+    """Highlight → Knowledge 승격. 자동으로 derives_from 링크(session) 생성."""
+    hl = await get_highlight(conn, highlight_id)
+    if hl is None:
+        return None
+
+    effective_title = title or hl.text[:80]
+    ki = await create_knowledge(
+        conn,
+        title=effective_title,
+        body=hl.text,
+        kind=kind,
+        source_type="highlight",
+        source_id=str(hl.highlight_id),
+    )
+    # Link: knowledge → session (derives_from).
+    await create_link(
+        conn,
+        from_type="knowledge",
+        from_id=str(ki.knowledge_id),
+        to_type="session",
+        to_id=hl.session_id,
+        relation="derives_from",
+    )
+    return ki
+
+
+# ---------- Session deletion ----------
 
 
 async def delete_session(conn: aiosqlite.Connection, session_id: str) -> bool:

@@ -33,6 +33,13 @@ export type HousekeepingCandidateItem =
 export type HousekeepingScanResponse =
   components["schemas"]["HousekeepingScanResponse"];
 
+export type KnowledgeRow = components["schemas"]["KnowledgeRow"];
+export type KnowledgeLinkRow = components["schemas"]["KnowledgeLinkRow"];
+export type KnowledgeDetailResponse =
+  components["schemas"]["KnowledgeDetailResponse"];
+export type KnowledgeListResponse =
+  components["schemas"]["KnowledgeListResponse"];
+
 // 검색 응답 (schema.ts 재생성 전이므로 인라인 정의)
 export interface SearchResponse {
   items: SessionListItem[];
@@ -81,13 +88,21 @@ export function useSessions(params?: SessionsQuery) {
 }
 
 // ── Session detail ──────────────────────────────────────────
-export function useSession(id: string, offset = 0, limit = 200) {
+export function useSession(
+  id: string,
+  offset = 0,
+  limit = 200,
+  fromEnd = false,
+) {
+  const qs = new URLSearchParams({
+    offset: String(offset),
+    limit: String(limit),
+  });
+  if (fromEnd) qs.set("from_end", "true");
   return useQuery({
-    queryKey: ["session", id, offset],
+    queryKey: ["session", id, offset, fromEnd],
     queryFn: () =>
-      api<SessionDetailResponse>(
-        `/api/sessions/${id}?offset=${offset}&limit=${limit}`,
-      ),
+      api<SessionDetailResponse>(`/api/sessions/${id}?${qs.toString()}`),
     enabled: !!id,
   });
 }
@@ -151,6 +166,34 @@ export function useHousekeepingScan(params?: { staleDays?: number }) {
       api<HousekeepingScanResponse>(
         `/api/housekeeping/scan${s ? `?${s}` : ""}`,
       ),
+  });
+}
+
+// ── Knowledge ──────────────────────────────────────────────
+export function useKnowledgeList(params?: {
+  kind?: string;
+  q?: string;
+  limit?: number;
+  offset?: number;
+}) {
+  const qs = new URLSearchParams();
+  if (params?.kind) qs.set("kind", params.kind);
+  if (params?.q) qs.set("q", params.q);
+  if (params?.limit != null) qs.set("limit", String(params.limit));
+  if (params?.offset != null) qs.set("offset", String(params.offset));
+  const s = qs.toString();
+  return useQuery({
+    queryKey: ["knowledge", params ?? {}],
+    queryFn: () =>
+      api<KnowledgeListResponse>(`/api/knowledge${s ? `?${s}` : ""}`),
+  });
+}
+
+export function useKnowledge(id: number) {
+  return useQuery({
+    queryKey: ["knowledge", id],
+    queryFn: () => api<KnowledgeDetailResponse>(`/api/knowledge/${id}`),
+    enabled: id > 0,
   });
 }
 
