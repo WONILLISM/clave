@@ -12,8 +12,10 @@ import { MarkdownContent } from "./MarkdownContent";
 
 interface Props {
   messages: MessageItem[];
-  hasMore: boolean;
-  onLoadMore: () => void;
+  hasBefore?: boolean;
+  isLoadingEarlier?: boolean;
+  onLoadEarlier?: () => void;
+  hasMore?: boolean;
 }
 
 interface ToolUseEntry {
@@ -275,11 +277,28 @@ function MessageBlock({
   );
 }
 
-export function SessionStream({ messages, hasMore, onLoadMore }: Props) {
+export function SessionStream({
+  messages,
+  hasBefore,
+  isLoadingEarlier,
+  onLoadEarlier,
+  hasMore,
+}: Props) {
   const resultMap = useMemo(() => buildResultMap(messages), [messages]);
 
   return (
     <div className="space-y-8 p-6">
+      {hasBefore && onLoadEarlier && (
+        <div className="flex justify-center pb-4">
+          <button
+            onClick={onLoadEarlier}
+            disabled={isLoadingEarlier}
+            className="rounded-xs border border-outline-variant bg-surface-container px-4 py-2 font-mono text-sm text-on-surface-variant transition-colors hover:bg-surface-container-high disabled:opacity-50"
+          >
+            {isLoadingEarlier ? "불러오는 중…" : "이전 대화 불러오기"}
+          </button>
+        </div>
+      )}
       {messages.map((msg, i) => (
         <MessageBlock
           key={msg.uuid ?? i}
@@ -288,13 +307,8 @@ export function SessionStream({ messages, hasMore, onLoadMore }: Props) {
         />
       ))}
       {hasMore && (
-        <div className="flex justify-center pt-4">
-          <button
-            onClick={onLoadMore}
-            className="rounded-xs border border-outline-variant bg-surface-container px-4 py-2 font-mono text-sm text-on-surface-variant transition-colors hover:bg-surface-container-high"
-          >
-            더 불러오기
-          </button>
+        <div className="flex justify-center pt-4 text-xs text-outline">
+          대화가 계속됩니다…
         </div>
       )}
     </div>

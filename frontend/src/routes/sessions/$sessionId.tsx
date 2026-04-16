@@ -1,4 +1,4 @@
-import { useState, useCallback, useRef } from "react";
+import { useState, useCallback, useRef, useMemo, useEffect } from "react";
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import {
   Copy,
@@ -12,6 +12,7 @@ import {
   ArrowLeft,
   Trash2,
 } from "lucide-react";
+import { useQuery } from "@tanstack/react-query";
 import {
   useSession,
   useSessions,
@@ -19,6 +20,8 @@ import {
   useNotes,
   useHighlights,
 } from "~/api/queries";
+import type { SessionDetailResponse } from "~/api/queries";
+import { api } from "~/api/client";
 import {
   usePinSession,
   useUnpinSession,
@@ -46,12 +49,48 @@ export const Route = createFileRoute("/sessions/$sessionId")({
 function SessionDetailPage() {
   const { sessionId } = Route.useParams();
   const navigate = useNavigate();
-  const [offset, setOffset] = useState(0);
   const [tagInput, setTagInput] = useState("");
   const [showTagInput, setShowTagInput] = useState(false);
 
-  const { data, isPending, error } = useSession(sessionId, offset);
+  // 최신 메시지부터 로드 (from_end=true).
+  const { data, isPending, error } = useSession(sessionId, 0, 200, true);
   const meta = data?.session;
+
+  // 이전 대화 청크들 (위로 확장).
+  const [earlierChunks, setEarlierChunks] = useState<
+    import("~/api/queries").MessageItem[][]
+  >([]);
+  const [earlierOffset, setEarlierOffset] = useState<number | null>(null);
+  const loadedOffsets = useRef(new Set<number>());
+
+  // earlierOffset이 null이 아닐 때만 쿼리 실행.
+  const earlierQuery = useQuery({
+    queryKey: ["session", sessionId, earlierOffset, false],
+    queryFn: () =>
+      api<SessionDetailResponse>(
+        `/api/sessions/${sessionId}?offset=${earlierOffset}&limit=200`,
+      ),
+    enabled: earlierOffset !== null,
+  });
+
+  // 이전 청크 데이터 도착 시 누적.
+  useEffect(() => {
+    if (
+      earlierQuery.data &&
+      earlierOffset !== null &&
+      !loadedOffsets.current.has(earlierOffset)
+    ) {
+      loadedOffsets.current.add(earlierOffset);
+      setEarlierChunks((prev) => [earlierQuery.data!.messages, ...prev]);
+    }
+  }, [earlierQuery.data, earlierOffset]);
+
+  // sessionId 바뀌면 이전 대화 초기화.
+  useEffect(() => {
+    setEarlierChunks([]);
+    setEarlierOffset(null);
+    loadedOffsets.current = new Set();
+  }, [sessionId]);
 
   const { data: siblings } = useSessions(
     meta ? { project_id: meta.project_id, limit: 20 } : undefined,
@@ -75,6 +114,20 @@ function SessionDetailPage() {
 
   const streamRef = useRef<HTMLDivElement | null>(null);
 
+  // 초기 로딩 완료 시 스크롤을 맨 아래로.
+  const didScrollToBottom = useRef(false);
+  useEffect(() => {
+    if (data && !didScrollToBottom.current && streamRef.current) {
+      streamRef.current.scrollTop = streamRef.current.scrollHeight;
+      didScrollToBottom.current = true;
+    }
+  }, [data]);
+
+  // 세션이 바뀌면 스크롤 플래그 리셋.
+  useEffect(() => {
+    didScrollToBottom.current = false;
+  }, [sessionId]);
+
   const handleJumpToMessage = useCallback((messageUuid: string) => {
     const el = streamRef.current?.querySelector<HTMLElement>(
       `[data-message-uuid="${messageUuid}"]`,
@@ -82,9 +135,30 @@ function SessionDetailPage() {
     if (el) el.scrollIntoView({ behavior: "smooth", block: "start" });
   }, []);
 
-  const handleLoadMore = useCallback(() => {
-    if (data?.has_more) setOffset(data.next_offset);
+  // 현재 보이는 첫 offset 계산: data가 from_end 로딩이므로 실제 offset 추적.
+  const currentStartOffset = useMemo(() => {
+    if (!data) return 0;
+    const msgCount = data.messages.length;
+    // from_end 응답: next_offset = effective_offset + consumed
+    return Math.max(0, data.next_offset - msgCount);
   }, [data]);
+
+  // 가장 앞쪽에 로드된 offset 추적.
+  const lowestLoadedOffset = useMemo(() => {
+    if (loadedOffsets.current.size > 0) {
+      return Math.min(...loadedOffsets.current);
+    }
+    return currentStartOffset;
+  }, [currentStartOffset, earlierChunks]); // earlierChunks 변경 시 재계산
+
+  const hasBefore = lowestLoadedOffset > 0;
+
+  const handleLoadEarlier = useCallback(() => {
+    const newOffset = Math.max(0, lowestLoadedOffset - 200);
+    if (newOffset < lowestLoadedOffset) {
+      setEarlierOffset(newOffset);
+    }
+  }, [lowestLoadedOffset]);
 
   const handleCopyId = useCallback(() => {
     navigator.clipboard.writeText(sessionId);
@@ -360,9 +434,11 @@ function SessionDetailPage() {
         {/* Messages */}
         <div ref={streamRef} className="flex-1 overflow-y-auto">
           <SessionStream
-            messages={data.messages}
+            messages={[...earlierChunks.flat(), ...data.messages]}
+            hasBefore={hasBefore}
+            isLoadingEarlier={earlierQuery.isPending && earlierOffset !== null}
+            onLoadEarlier={handleLoadEarlier}
             hasMore={data.has_more}
-            onLoadMore={handleLoadMore}
           />
         </div>
         <HighlightSelectionToolbar

@@ -42,6 +42,7 @@ async def get_session_endpoint(
     session_id: str,
     offset: int = Query(0, ge=0, description="line offset to start from"),
     limit: int = Query(200, ge=1, le=2000),
+    from_end: bool = Query(False, description="true 면 최신 메시지부터 역순 로딩"),
     db: aiosqlite.Connection = Depends(get_db),
 ) -> SessionDetailResponse:
     meta = await repo.get_session_list_item(db, session_id)
@@ -54,12 +55,19 @@ async def get_session_endpoint(
     if not path.is_file():
         raise HTTPException(status_code=410, detail="session jsonl file is gone")
 
+    # 전체 유효 라인 수를 한 번 센다 (from_end offset 계산 + 응답용).
+    total_lines = sum(1 for _ in iter_jsonl(path))
+
+    effective_offset = offset
+    if from_end and offset == 0:
+        effective_offset = max(0, total_lines - limit)
+
     messages = []
     seen = 0
     consumed = 0
     has_more = False
     for _raw, item in iter_jsonl(path):
-        if seen < offset:
+        if seen < effective_offset:
             seen += 1
             continue
         if consumed >= limit:
@@ -73,7 +81,8 @@ async def get_session_endpoint(
         session=meta,
         messages=messages,
         has_more=has_more,
-        next_offset=offset + consumed if has_more else offset + consumed,
+        next_offset=effective_offset + consumed if has_more else effective_offset + consumed,
+        total_lines=total_lines,
     )
 
 
